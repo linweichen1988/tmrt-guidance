@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>旅客引導系統</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--color-background-primary:#ffffff;--color-background-secondary:#f5f5f4;--color-background-tertiary:#e8e8e6;--color-background-info:#e6f1fb;--color-text-primary:#1a1a18;--color-text-secondary:#6b6b67;--color-text-tertiary:#9e9e9a;--color-text-info:#0c447c;--color-border-tertiary:#e0e0dc;--color-border-secondary:#d0d0cc;--color-border-info:#b5d4f4;--border-radius-md:6px;--border-radius-lg:10px;--font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--font-mono:'SF Mono','Fira Code',monospace}
+body{font-family:var(--font-sans);background:var(--color-background-tertiary);margin:0}
+
+/* ── 登入頁面 ── */
+#login-screen{display:flex;min-height:100vh;align-items:center;justify-content:center;background:var(--color-background-tertiary);padding:24px}
+.login-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);width:360px;padding:32px 32px 28px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.logo-area{text-align:center;margin-bottom:24px}
+.logo-placeholder{width:64px;height:64px;border-radius:var(--border-radius-lg);border:1.5px dashed var(--color-border-secondary);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;background:var(--color-background-secondary);color:var(--color-text-tertiary);font-size:11px;cursor:pointer;flex-direction:column;gap:3px}
+.logo-uploaded{width:64px;height:64px;border-radius:var(--border-radius-lg);margin:0 auto 12px;object-fit:contain;display:none}
+.sys-name{font-size:16px;font-weight:500;color:var(--color-text-primary)}
+.sys-sub{font-size:11px;color:var(--color-text-secondary);margin-top:3px}
+.login-form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.login-label{font-size:12px;color:var(--color-text-secondary);font-weight:500}
+.input-wrap{position:relative}
+.input-wrap input{font-family:var(--font-sans);font-size:13px;padding:8px 36px 8px 11px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);width:100%;transition:border-color .15s}
+.input-wrap input:focus{outline:none;border-color:#378ADD}
+.input-wrap input.inp-err{border-color:#E24B4A}
+.eye-btn{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--color-text-tertiary);font-size:15px;padding:2px}
+.login-btn{width:100%;padding:9px;font-size:13px;font-weight:500;background:#378ADD;color:#fff;border:none;border-radius:var(--border-radius-md);cursor:pointer;font-family:var(--font-sans);margin-top:4px}
+.login-btn:hover{background:#185FA5}
+.login-btn:disabled{background:var(--color-background-secondary);color:var(--color-text-tertiary);cursor:not-allowed}
+.login-err{font-size:11px;color:#E24B4A;display:flex;align-items:center;gap:4px;min-height:16px;margin-bottom:4px}
+.attempt-info{font-size:11px;color:var(--color-text-secondary);text-align:center;margin-top:8px;min-height:16px}
+.lock-overlay{display:none;text-align:center;padding:12px 0}
+.lock-cd{font-size:28px;font-weight:500;font-variant-numeric:tabular-nums;color:#E24B4A;letter-spacing:2px}
+.login-footer{font-size:11px;color:var(--color-text-tertiary);margin-top:14px;text-align:center}
+.last-login-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#2C2C2A;color:#fff;font-size:12px;padding:10px 20px;border-radius:var(--border-radius-lg);opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.last-login-toast.show{opacity:1}
+
+/* ── 主系統 ── */
+#main-screen{display:none;min-height:100vh}
+.layout{display:grid;grid-template-columns:200px 1fr;min-height:100vh}
+.sidebar{background:var(--color-background-primary);border-right:0.5px solid var(--color-border-tertiary)}
+.sidebar-header{padding:14px 16px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.sidebar-logo{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.sidebar-sub{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.sidebar-user{font-size:11px;margin-top:5px;display:flex;align-items:center;gap:5px}
+.last-login-info{font-size:10px;color:var(--color-text-tertiary);margin:6px 16px 0;padding:6px 8px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);line-height:1.6}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:13px;color:var(--color-text-secondary);cursor:pointer;border-left:2px solid transparent}
+.nav-item:hover{background:var(--color-background-secondary);color:var(--color-text-primary)}
+.nav-item.active{color:#0c447c;border-left-color:#378ADD;background:var(--color-background-info)}
+.nav-item i{font-size:16px}
+.nav-section{padding:10px 16px 3px;font-size:10px;color:var(--color-text-tertiary);letter-spacing:.05em;text-transform:uppercase}
+.logout-btn{display:flex;align-items:center;gap:8px;padding:9px 16px;font-size:12px;color:#E24B4A;cursor:pointer;margin-top:auto;border-top:0.5px solid var(--color-border-tertiary)}
+.logout-btn:hover{background:#FCEBEB}
+.main{padding:0;overflow:auto;background:var(--color-background-tertiary)}
+.page{display:none;padding:18px}.page.active{display:block}
+.tt-banner{display:flex;align-items:center;padding:9px 14px;border-radius:var(--border-radius-md);margin-bottom:14px;font-size:12px;gap:8px}
+.tt-banner.normal{background:#EAF3DE;border:0.5px solid #C0DD97;color:#27500A}
+.tt-banner.suspended{background:#FCEBEB;border:0.5px solid #F09595;color:#791F1F}
+.suspend-overlay{background:#FCEBEB;border:1.5px solid #E24B4A;border-radius:var(--border-radius-lg);padding:24px;text-align:center;margin-bottom:14px}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.topbar-title{font-size:15px;font-weight:500;color:var(--color-text-primary)}
+.topbar-meta{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;font-size:12px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer;font-family:var(--font-sans)}
+.btn:hover{background:var(--color-background-secondary)}
+.btn-primary{background:#378ADD;color:#fff;border-color:#378ADD}.btn-primary:hover{background:#185FA5}
+.btn-warning{background:#E24B4A;color:#fff;border-color:#E24B4A}.btn-warning:hover{background:#A32D2D}
+.btn-restore{background:#1D9E75;color:#fff;border-color:#1D9E75}.btn-restore:hover{background:#0F6E56}
+.btn-sm{padding:4px 9px;font-size:11px}
+.event-grid{display:grid;gap:10px}
+.event-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}
+.event-card.warn{border-left:3px solid #EF9F27;background:#FAEEDA18}
+.event-card.danger{border-left:3px solid #E24B4A;background:#FCEBEB22}
+.event-card.normal{border-left:3px solid #1D9E75}
+.event-route{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px}
+.event-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px}
+.tag{font-size:11px;padding:2px 7px;border-radius:var(--border-radius-md);border:0.5px solid}
+.tag-blue{background:#e6f1fb;color:#0c447c;border-color:#b5d4f4}
+.tag-gray{background:var(--color-background-secondary);color:var(--color-text-secondary);border-color:var(--color-border-secondary)}
+.tag-green{background:#EAF3DE;color:#3B6D11;border-color:#C0DD97}
+.tag-coral{background:#FAECE7;color:#993C1D;border-color:#F5C4B3}
+.event-note{font-size:11px;color:var(--color-text-secondary);margin-bottom:5px;white-space:pre-line}
+.event-actions{display:flex;gap:4px;margin-top:5px}
+.event-meta{font-size:10px;color:var(--color-text-tertiary);margin-top:4px}
+.countdown-box{text-align:center;min-width:88px}
+.countdown-num{font-size:24px;font-weight:500;padding:5px 10px;border-radius:var(--border-radius-md);font-variant-numeric:tabular-nums;letter-spacing:1px}
+.countdown-num.normal{background:var(--color-background-secondary);color:var(--color-text-primary)}
+.countdown-num.warn{background:#FAC775;color:#412402}
+.countdown-num.danger{background:#E24B4A;color:#fff}
+.countdown-label{font-size:10px;color:var(--color-text-tertiary);margin-top:2px}
+.countdown-depart{font-size:11px;color:var(--color-text-secondary);margin-top:3px}
+.empty-state{text-align:center;padding:36px 20px;color:var(--color-text-secondary);font-size:13px}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);width:500px;max-height:86vh;overflow:auto}
+.modal-header{padding:14px 18px;border-bottom:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-size:14px;font-weight:500}
+.modal-body{padding:18px;display:grid;gap:10px}
+.modal-footer{padding:12px 18px;border-top:0.5px solid var(--color-border-tertiary);display:flex;justify-content:flex-end;gap:8px}
+.alert-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;align-items:center;justify-content:center}
+.alert-bg.open{display:flex}
+.alert-box{border-radius:var(--border-radius-lg);border:2px solid;padding:24px 28px;text-align:center;width:400px;background:var(--color-background-primary)}
+.alert-box.warn{border-color:#EF9F27;background:#FAEEDA}
+.alert-box.danger{border-color:#E24B4A;background:#FCEBEB}
+.alert-box.success{border-color:#1D9E75;background:#EAF3DE}
+.alert-icon{font-size:32px;margin-bottom:8px}
+.alert-title{font-size:15px;font-weight:500;margin-bottom:10px}
+.alert-info{background:rgba(0,0,0,.06);border-radius:var(--border-radius-md);padding:10px 14px;text-align:left;margin-bottom:14px;font-size:12px;display:grid;gap:5px}
+.alert-info-row{display:flex;gap:8px}
+.alert-info-label{color:var(--color-text-secondary);min-width:52px}
+.alert-info-val{color:var(--color-text-primary);font-weight:500}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:12px;color:var(--color-text-secondary);font-weight:500}
+.form-label span{color:#E24B4A}
+.section-divider{font-size:10px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.04em;padding-top:4px;border-top:0.5px solid var(--color-border-tertiary);margin-top:2px}
+select,input[type=text],input[type=password],input[type=date],textarea{font-family:var(--font-sans);font-size:12px;padding:6px 9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);width:100%}
+textarea{resize:vertical;min-height:56px}
+.dir-display{font-size:12px;padding:6px 9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-secondary);width:100%}
+.field-row{display:grid;grid-template-columns:76px 1fr;align-items:center;gap:8px}
+.field-key{font-size:12px;color:var(--color-text-secondary);text-align:right;white-space:nowrap}
+.field-input{font-family:var(--font-sans);font-size:12px;padding:5px 9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);width:100%}
+.field-input:focus{outline:none;border-color:#378ADD}
+.next-trains{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px}
+.next-trains-title{font-size:11px;color:var(--color-text-secondary);margin-bottom:5px}
+.train-option{display:flex;align-items:center;gap:8px;padding:4px 7px;border-radius:var(--border-radius-md);cursor:pointer;font-size:12px}
+.train-option:hover{background:var(--color-background-primary)}
+.train-option.selected{background:#e6f1fb;color:#0c447c}
+.train-option input[type=radio]{width:auto}
+.vtable{width:100%;border-collapse:collapse;font-size:12px}
+.vtable th{text-align:left;padding:7px 11px;font-size:11px;color:var(--color-text-secondary);font-weight:500;border-bottom:0.5px solid var(--color-border-tertiary);white-space:nowrap}
+.vtable td{padding:8px 11px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary);vertical-align:middle}
+.vtable tr:last-child td{border-bottom:none}
+.badge{font-size:11px;padding:2px 7px;border-radius:var(--border-radius-md);font-weight:500;display:inline-block;white-space:nowrap}
+.badge-green{background:#EAF3DE;color:#3B6D11}
+.badge-gray{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+.badge-blue{background:#e6f1fb;color:#0c447c}
+.badge-amber{background:#FAEEDA;color:#633806}
+.badge-red{background:#FCEBEB;color:#791F1F}
+.badge-purple{background:#EEEDFE;color:#3C3489}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden}
+.card-pad{padding:14px 16px}
+.tt-select-block{background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:14px 16px;margin-bottom:12px}
+.tt-select-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.tt-auto-tag{font-size:10px;padding:2px 7px;border-radius:var(--border-radius-md);background:#EAF3DE;color:#27500A;font-weight:500}
+.tt-manual-tag{font-size:10px;padding:2px 7px;border-radius:var(--border-radius-md);background:#FAEEDA;color:#633806;font-weight:500}
+.suspend-zone-card{background:#FCEBEB;border:0.5px solid #F09595;border-radius:var(--border-radius-lg);padding:14px 16px;margin-top:12px}
+.filter-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.filter-bar select,.filter-bar input{width:auto;font-size:12px;padding:5px 8px}
+.log-op-badge{font-size:10px;padding:2px 6px;border-radius:var(--border-radius-md);font-weight:500;display:inline-block}
+.op-login{background:#EAF3DE;color:#27500A}.op-create{background:#e6f1fb;color:#0C447C}.op-edit{background:#FAEEDA;color:#633806}.op-delete{background:#FCEBEB;color:#791F1F}.op-export{background:#EEEDFE;color:#3C3489}.op-upload{background:#EAF3DE;color:#27500A}.op-suspend{background:#FAEEDA;color:#633806}.op-fail{background:#FCEBEB;color:#791F1F}
+.notify-bar{background:#EAF3DE;border:0.5px solid #C0DD97;border-radius:var(--border-radius-md);padding:10px 14px;font-size:12px;color:#27500A;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.sound-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px 16px;margin-bottom:10px}
+.preset-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.preset-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);cursor:pointer;background:var(--color-background-secondary)}
+.preset-item:hover,.preset-item.selected{border-color:#378ADD;background:#e6f1fb}
+.preset-play{width:24px;height:24px;border-radius:50%;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.preset-play.playing{background:#378ADD;border-color:#378ADD;color:#fff}
+.vol-row{display:flex;align-items:center;gap:10px;padding:6px 0}
+input[type=range]{flex:1;accent-color:#378ADD}
+.upload-label{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;font-size:11px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:8px}
+.cal-hd{font-size:10px;text-align:center;color:var(--color-text-secondary);padding:3px;font-weight:500}
+.cal-d{font-size:11px;text-align:center;padding:5px 2px;border-radius:var(--border-radius-md);cursor:pointer;border:0.5px solid transparent}
+.cal-d.wd{color:var(--color-text-primary)}.cal-d.fd{background:#FAEEDA;color:#633806;border-color:#FAC775}
+.cal-d.rd{background:#EAF3DE;color:#3B6D11;border-color:#C0DD97}
+.cal-d.wb{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+.cal-d.em{visibility:hidden}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary)}
+.legend-dot{width:9px;height:9px;border-radius:50%}
+.err-msg{font-size:11px;color:#E24B4A;display:flex;align-items:center;gap:4px;margin-top:3px;min-height:15px}
+.info-block{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px;font-size:11px;color:var(--color-text-secondary);line-height:1.7;margin-bottom:4px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2C2C2A;color:#fff;font-size:12px;padding:8px 16px;border-radius:var(--border-radius-lg);opacity:0;transition:opacity .2s;pointer-events:none;z-index:9999}
+.toast.show{opacity:1}
+.perm-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+.perm-table th{text-align:left;padding:6px 10px;font-size:11px;color:var(--color-text-secondary);font-weight:500;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary)}
+.perm-table td{padding:7px 10px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.perm-table tr:last-child td{border-bottom:none}
+.pwd-wrap{position:relative}
+.pwd-wrap input{padding-right:32px}
+.pwd-eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--color-text-tertiary);font-size:14px;padding:2px}
+
+.cal-type-option{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);cursor:pointer;font-size:12px;margin-bottom:7px}
+.cal-type-option:hover{background:var(--color-background-secondary)}
+.cal-type-option.selected{border-color:#378ADD;background:var(--color-background-info);color:var(--color-text-info)}
+
+
+/* ══ RWD 手機版 ══ */
+@media (max-width: 768px) {
+  .layout{grid-template-columns:1fr}
+  .sidebar{display:none;position:fixed;inset:0;z-index:500;width:80%;max-width:300px;overflow-y:auto;box-shadow:4px 0 20px rgba(0,0,0,.15)}
+  .sidebar.mobile-open{display:flex;flex-direction:column}
+  .main{min-height:100vh}
+  .mobile-topbar{display:flex!important}
+  .page{padding:12px}
+  .topbar{flex-wrap:wrap;gap:8px}
+  .topbar-title{font-size:14px}
+  .event-card{grid-template-columns:1fr;gap:6px}
+  .countdown-box{display:flex;align-items:center;gap:10px;min-width:unset}
+  .countdown-num{font-size:18px;padding:4px 8px}
+  .form-row{grid-template-columns:1fr}
+  .modal{width:calc(100vw - 32px)!important;max-width:100%}
+  .alert-box{width:calc(100vw - 40px)!important}
+  .mobile-overlay{display:block!important}
+  #add-btn{width:100%;justify-content:center;padding:10px}
+}
+@media (min-width: 769px) {
+  .mobile-topbar{display:none!important}
+  .mobile-overlay{display:none!important}
+}
+
+</style>
+</head>
+<body>
+
+<!-- ══════════ 登入畫面 ══════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="logo-area">
+      <img id="logo-img" src="data:image/png;base64,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" alt="台中捷運 TMRT" style="width:220px;height:auto;display:block;margin:0 auto 12px">
+      <div class="sys-name">旅客引導系統</div>
+      <div class="sys-sub">旅客引導管理系統</div>
+    </div>
+    <div id="login-form">
+      <div class="login-form-group">
+        <div class="login-label">帳號</div>
+        <div class="input-wrap"><input type="text" id="l-acc" placeholder="請輸入帳號" autocomplete="off" oninput="clearLoginErr()"></div>
+      </div>
+      <div class="login-form-group">
+        <div class="login-label">密碼</div>
+        <div class="input-wrap">
+          <input type="password" id="l-pwd" placeholder="請輸入密碼" autocomplete="off" oninput="clearLoginErr()" onkeydown="if(event.key==='Enter')doLogin()">
+          <button class="eye-btn" onclick="toggleLoginEye()" tabindex="-1"><i class="ti ti-eye" id="eye-icon"></i></button>
+        </div>
+      </div>
+      <div class="login-err" id="l-err"></div>
+      <button class="login-btn" id="l-btn" onclick="doLogin()">登入</button>
+      <div class="attempt-info" id="l-attempt"></div>
+    </div>
+    <div class="lock-overlay" id="lock-wrap">
+      <div style="font-size:28px;margin-bottom:6px">🔒</div>
+      <div style="font-size:13px;font-weight:500;color:#791F1F;margin-bottom:4px">帳號已暫時鎖定</div>
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:10px">連續 5 次密碼錯誤，請等待後再試</div>
+      <div class="lock-cd" id="lock-cd">05:00</div>
+      <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:4px">後自動解鎖</div>
+    </div>
+    <div class="login-footer">僅限授權裝置存取　如遇問題請聯繫系統管理員</div>
+  </div>
+</div>
+<div class="last-login-toast" id="last-toast"><i class="ti ti-info-circle" style="font-size:14px"></i><span id="last-toast-text"></span></div>
+
+<!-- ══════════ 主系統 ══════════ -->
+<div id="main-screen">
+<!-- 手機版頂部列 -->
+<div class="mobile-topbar" style="display:none;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--color-background-primary);border-bottom:0.5px solid var(--color-border-tertiary);position:sticky;top:0;z-index:100">
+  <button onclick="openMobileMenu()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--color-text-primary);font-size:20px;display:flex;align-items:center">
+    <i class="ti ti-menu-2"></i>
+  </button>
+  <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">旅客引導系統</div>
+  <button onclick="openModal()" id="mobile-add-btn" style="background:#378ADD;border:none;cursor:pointer;padding:6px 10px;border-radius:var(--border-radius-md);color:#fff;font-size:12px;display:flex;align-items:center;gap:4px;font-family:var(--font-sans)">
+    <i class="ti ti-plus"></i>新增
+  </button>
+</div>
+<!-- 手機選單遮罩 -->
+<div class="mobile-overlay" onclick="closeMobileMenu()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:499"></div>
+<div class="layout">
+<nav class="sidebar" style="display:flex;flex-direction:column">
+  <div>
+    <div class="sidebar-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div class="sidebar-logo">旅客引導系統</div>
+        <div class="sidebar-sub">台中捷運</div>
+        <div class="sidebar-user" id="sidebar-user-badge"></div>
+      </div>
+      <button onclick="closeMobileMenu()" class="mobile-topbar" style="display:none;background:none;border:none;cursor:pointer;color:var(--color-text-secondary);font-size:16px;padding:2px;margin-top:2px"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="last-login-info" id="sidebar-last-login">
+      <div style="display:flex;align-items:center;gap:4px;color:var(--color-text-tertiary)"><i class="ti ti-clock" style="font-size:11px"></i>上次登入</div>
+      <div id="last-login-time">—</div>
+      <div id="last-login-ip">—</div>
+    </div>
+    <div class="nav-section">主要功能</div>
+    <div class="nav-item active" data-page="events" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-users"></i>即時引導事件</div>
+    <div class="nav-item" data-page="history" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-history"></i>歷史查詢</div>
+    <div class="nav-section">管理</div>
+    <div class="nav-item" data-page="timetable" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-calendar"></i>時刻表版次</div>
+    <div class="nav-item" data-page="calendar" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-calendar-event"></i>行事曆管理</div>
+    <div class="nav-item" data-page="accounts" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-shield"></i>權限管理</div>
+    <div class="nav-item" data-page="report" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-file-analytics"></i>匯出報表</div>
+    <div class="nav-item" data-page="log" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-clipboard-list"></i>操作記錄</div>
+    <div class="nav-item" data-page="sound" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-volume"></i>音效設定</div>
+  </div>
+  <div class="logout-btn" onclick="doLogout()"><i class="ti ti-logout" style="font-size:15px"></i>登出</div>
+</nav>
+
+<div class="main">
+
+<!-- 即時引導事件 -->
+<div class="page active" id="page-events">
+  <div id="tt-banner-wrap"></div>
+  <div id="suspend-overlay-wrap"></div>
+  <div class="topbar">
+    <div><div class="topbar-title">即時引導事件</div><div class="topbar-meta" id="clock-display">—</div></div>
+    <button class="btn btn-primary" id="add-btn" onclick="openModal()"><i class="ti ti-plus"></i>新增事件</button>
+  </div>
+  <div id="event-list" class="event-grid"></div>
+</div>
+
+<!-- 歷史查詢 -->
+<div class="page" id="page-history">
+  <div class="topbar"><div class="topbar-title">歷史查詢</div><button class="btn"><i class="ti ti-download"></i>匯出</button></div>
+  <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:10px">顯示過去 30 天　S級、A級可編輯刪除</div>
+  <div class="card"><table class="vtable"><thead><tr><th>時間</th><th>路線</th><th>類別</th><th>車組</th><th>狀態</th><th>建立者</th><th>備註</th><th>操作</th></tr></thead><tbody id="history-body"></tbody></table></div>
+</div>
+
+<!-- 時刻表 -->
+<div class="page" id="page-timetable">
+  <div class="topbar"><div class="topbar-title">時刻表版次管理</div><button class="btn btn-primary" onclick="openNewTT()"><i class="ti ti-upload"></i>上傳新版本</button></div>
+  <div class="card"><table class="vtable"><thead><tr><th>版本名稱</th><th>類型</th><th>檔案名稱</th><th>上傳日期</th><th>上傳者</th><th>生效區間</th><th>狀態</th><th>操作</th></tr></thead><tbody id="tt-tbody"></tbody></table></div>
+</div>
+
+<!-- 行事曆 -->
+<div class="page" id="page-calendar">
+  <div class="topbar"><div class="topbar-title">行事曆管理</div><button class="btn" onclick="openCalImport()"><i class="ti ti-upload"></i>匯入政府行事曆</button></div>
+  <div class="tt-select-block">
+    <div style="font-size:12px;font-weight:500;margin-bottom:10px"><i class="ti ti-calendar-check" style="font-size:14px;vertical-align:-2px;margin-right:4px"></i>今日時刻表版次</div>
+    <div class="tt-select-row">
+      <div class="form-group"><div class="form-label">套用版次</div>
+        <select id="tt-sel" onchange="onTTChange()">
+          <option value="auto">自動判斷（依行事曆）</option>
+          <option value="W05">平日尖峰6分鐘離峰9分鐘深夜20分鐘　常態－平日　2026/01/10 上傳</option>
+          <option value="H1">假期首日尖峰7.5分離峰8分　常態－假期首日　2026/01/10 上傳</option>
+          <option value="H2">假期其餘日離峰9.5分　常態－假期其餘日　2026/01/10 上傳</option>
+        </select>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="applyTT()"><i class="ti ti-check"></i> 套用</button>
+    </div>
+    <div id="tt-current" style="font-size:11px;color:var(--color-text-secondary);display:flex;align-items:center;gap:5px;margin-top:8px"><span class="tt-auto-tag">自動</span><span>目前判斷結果：平日尖峰6分鐘離峰9分鐘深夜20分鐘　常態－平日　2026/01/10 上傳</span></div>
+  </div>
+  <div class="suspend-zone-card">
+    <div style="font-size:12px;font-weight:500;color:#791F1F;margin-bottom:4px;display:flex;align-items:center;gap:5px"><i class="ti ti-alert-triangle" style="font-size:13px"></i>暫停本頁面使用</div>
+    <div style="font-size:11px;color:#A32D2D;margin-bottom:10px;line-height:1.6">適用於颱風天班距異常、列車異常、ATS系統異常等情況。<br>暫停期間禁止新增事件，進行中的倒數任務不受影響直至結案。</div>
+    <div id="suspend-btn-area"><button class="btn btn-warning btn-sm" onclick="openSuspendModal()"><i class="ti ti-player-pause"></i> 暫停本頁面使用</button></div>
+  </div>
+  <div style="background:#FAEEDA;border:0.5px solid #FAC775;border-radius:var(--border-radius-md);padding:8px 12px;font-size:11px;color:#633806;margin-top:12px;display:none;align-items:center;gap:6px" id="cal-year-warn">
+    <i class="ti ti-alert-triangle" style="font-size:13px;flex-shrink:0"></i><span id="cal-year-warn-text"></span>
+  </div>
+  <div class="card card-pad" style="margin-top:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <button class="btn btn-sm" onclick="calPrevMonth()"><i class="ti ti-chevron-left"></i></button>
+      <div style="font-size:13px;font-weight:500" id="cal-month-label"></div>
+      <button class="btn btn-sm" onclick="calNextMonth()"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <div class="cal-grid" id="cal-grid-main">
+      <div class="cal-hd">日</div><div class="cal-hd">一</div><div class="cal-hd">二</div><div class="cal-hd">三</div><div class="cal-hd">四</div><div class="cal-hd">五</div><div class="cal-hd">六</div>
+    </div>
+    <div class="legend" style="margin-top:12px">
+      <div class="legend-item"><div class="legend-dot" style="background:#E6F1FB;border:0.5px solid #B5D4F4"></div><span style="color:#0C447C;font-size:11px">平日版</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FAEEDA;border:0.5px solid #FAC775"></div><span style="color:#633806;font-size:11px">假期首日版</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#EAF3DE;border:0.5px solid #C0DD97"></div><span style="color:#3B6D11;font-size:11px">假期其餘日版</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#EEEDFE;border:0.5px solid #AFA9EC"></div><span style="color:#3C3489;font-size:11px">特殊版（已指定）</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FCEBEB;border:0.5px solid #F09595"></div><span style="color:#791F1F;font-size:11px">特殊日（需上傳）</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 權限管理 -->
+<div class="page" id="page-accounts">
+  <div class="topbar"><div class="topbar-title">權限管理</div><button class="btn btn-primary" onclick="openAccModal()"><i class="ti ti-plus"></i>新增帳號</button></div>
+  <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:10px">帳號登入綁定 IP · 連續 5 次密碼錯誤鎖定 5 分鐘 · S級可查看所有帳號密碼</div>
+  <div class="card" style="margin-bottom:12px"><table class="vtable"><thead><tr><th>帳號</th><th>姓名</th><th>車站</th><th>層級</th><th>密碼</th><th>綁定 IP</th><th>狀態</th><th>操作</th></tr></thead><tbody id="accounts-body"></tbody></table></div>
+  <div style="font-size:13px;font-weight:500;margin-bottom:8px">權限對照表</div>
+  <div class="card"><table class="perm-table"><thead><tr><th>功能</th><th><span class="badge badge-purple">S</span></th><th><span class="badge badge-blue">A</span></th><th><span class="badge badge-gray">B</span></th></tr></thead><tbody>
+    <tr><td>全線事件 新增/編輯/刪除</td><td style="color:#1D9E75">✓</td><td style="color:#1D9E75">✓</td><td>—</td></tr>
+    <tr><td>本站自建事件 編輯/刪除</td><td style="color:#1D9E75">✓</td><td style="color:#1D9E75">✓</td><td style="color:#1D9E75">✓</td></tr>
+    <tr><td>時刻表 / 行事曆 / 暫停管理</td><td style="color:#1D9E75">✓</td><td style="color:#1D9E75">✓</td><td>—</td></tr>
+    <tr><td>歷史查詢 編輯/刪除</td><td>全線</td><td>本站</td><td>僅檢視</td></tr>
+    <tr><td>操作記錄查詢</td><td style="color:#1D9E75">✓</td><td style="color:#1D9E75">✓</td><td>—</td></tr>
+    <tr><td>帳號管理 / 報表 / 音效設定</td><td style="color:#1D9E75">✓</td><td>—</td><td>—</td></tr>
+  </tbody></table></div>
+</div>
+
+<!-- 報表 -->
+<div class="page" id="page-report">
+  <div class="topbar"><div class="topbar-title">匯出報表</div></div>
+  <div class="notify-bar"><i class="ti ti-bell"></i>系統偵測到本月尚未下載 5 月份月報，請點擊下方按鈕下載。</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="card card-pad"><div style="font-size:13px;font-weight:500;margin-bottom:10px">月報（自動產生）</div><div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:10px">2026 年 5 月份月報已就緒</div><button class="btn btn-primary" style="width:100%"><i class="ti ti-download"></i>下載 5 月份月報</button></div>
+    <div class="card card-pad"><div style="font-size:13px;font-weight:500;margin-bottom:10px">自訂區間報表</div><div class="form-group"><div class="form-label">開始日期</div><input type="date" value="2026-06-01"></div><div class="form-group" style="margin-top:8px"><div class="form-label">結束日期</div><input type="date" value="2026-06-04"></div><button class="btn" style="margin-top:10px;width:100%"><i class="ti ti-download"></i>匯出 Excel</button></div>
+  </div>
+</div>
+
+<!-- 操作記錄 -->
+<div class="page" id="page-log">
+  <div class="topbar"><div class="topbar-title">操作記錄</div><button class="btn" onclick="showToast('匯出中...')"><i class="ti ti-download"></i>匯出 Excel</button></div>
+  <div class="filter-bar">
+    <select id="lf-op" onchange="filterLog()"><option value="">全部操作</option><option value="login">登入</option><option value="create">新增事件</option><option value="edit">編輯事件</option><option value="delete">刪除事件</option><option value="suspend">暫停/恢復</option><option value="upload">上傳時刻表</option><option value="export">匯出報表</option></select>
+    <select id="lf-role" onchange="filterLog()"><option value="">全部層級</option><option value="S">S 級</option><option value="A">A 級</option><option value="B">B 級</option></select>
+    <button class="btn btn-sm" onclick="document.getElementById('lf-op').value='';document.getElementById('lf-role').value='';filterLog()"><i class="ti ti-refresh"></i> 重置</button>
+  </div>
+  <div class="card"><table class="vtable"><thead><tr><th>時間</th><th>帳號</th><th>姓名</th><th>層</th><th>操作</th><th>內容</th><th>IP</th><th>結果</th></tr></thead><tbody id="log-body"></tbody></table></div>
+  <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:8px" id="log-count"></div>
+</div>
+
+<!-- 音效設定 -->
+<div class="page" id="page-sound">
+  <div class="topbar"><div class="topbar-title">音效設定</div><button class="btn btn-primary" onclick="saveAllSound()"><i class="ti ti-device-floppy"></i>儲存設定</button></div>
+  <div id="sound-cards"></div>
+</div>
+
+</div>
+</div>
+</div>
+
+<!-- 新增事件 Modal -->
+<div class="modal-bg" id="modal-form">
+<div class="modal">
+  <div class="modal-header"><div class="modal-title" id="mf-title">新增引導事件</div><button class="btn btn-sm" onclick="closeFormModal()"><i class="ti ti-x"></i></button></div>
+  <div class="modal-body">
+    <input type="hidden" id="f-edit-id">
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">起站 <span>*</span></div>
+        <select id="f-from" onchange="autoDir()"><option value="G0">G0 北屯總站</option><option value="G3">G3 舊社</option><option value="G4">G4 松竹</option><option value="G5">G5 四維國小</option><option value="G6">G6 文心崇德</option><option value="G7">G7 文心中清</option><option value="G8">G8 文華高中</option><option value="G8a">G8a 文心櫻花</option><option value="G9" selected>G9 市政府</option><option value="G10">G10 水安宮</option><option value="G10a">G10a 文心森林公園</option><option value="G11">G11 南屯</option><option value="G12">G12 豐樂公園</option><option value="G13">G13 大慶</option><option value="G14">G14 九張犁</option><option value="G15">G15 九德</option><option value="G16">G16 烏日</option><option value="G17">G17 高鐵臺中站</option></select>
+      </div>
+      <div class="form-group"><div class="form-label">迄站 <span>*</span></div>
+        <select id="f-to" onchange="autoDir()"><option value="G0">G0 北屯總站</option><option value="G3">G3 舊社</option><option value="G4">G4 松竹</option><option value="G5">G5 四維國小</option><option value="G6">G6 文心崇德</option><option value="G7">G7 文心中清</option><option value="G8">G8 文華高中</option><option value="G8a">G8a 文心櫻花</option><option value="G9">G9 市政府</option><option value="G10">G10 水安宮</option><option value="G10a">G10a 文心森林公園</option><option value="G11">G11 南屯</option><option value="G12">G12 豐樂公園</option><option value="G13" selected>G13 大慶</option><option value="G14">G14 九張犁</option><option value="G15">G15 九德</option><option value="G16">G16 烏日</option><option value="G17">G17 高鐵臺中站</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">方向（系統自動判斷）</div>
+        <div class="dir-display" id="dir-display">↓ 下行（往高鐵臺中站）</div>
+        <input type="hidden" id="f-dir" value="down">
+      </div>
+      <div class="form-group"><div class="form-label">車組（請確認 ATS 系統）</div>
+        <select id="f-train"><option value="">請確認 ATS 系統後選擇</option><option>01/02</option><option>03/04</option><option>05/06</option><option>07/08</option><option>09/10</option><option>11/12</option><option>13/14</option><option>15/16</option><option>17/18</option><option>19/20</option><option>21/22</option><option>23/24</option><option>25/26</option><option>27/28</option><option>29/30</option><option>31/32</option><option>33/34</option><option>35/36</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">車門</div><select id="f-gate"><option>01 車門</option><option>02 車門</option><option>03 車門</option><option>04 車門</option><option>05 車門</option><option>06 車門</option><option>07 車門</option><option>08 車門</option><option>09 車門</option><option>10 車門</option></select></div>
+      <div class="form-group"><div class="form-label">性別</div><select id="f-gender"><option>男性</option><option>女性</option></select></div>
+    </div>
+    <div class="form-group"><div class="form-label">旅客類別 <span>*</span></div><select id="f-type"><option>視障旅客</option><option>年長旅客</option><option>輪椅旅客（攜帶輪椅）</option><option>輪椅旅客（協助駐留）</option><option>其他</option></select></div>
+    <div class="form-group" id="train-sel-wrap"><div class="form-label">班次選擇 <span>*</span></div><div class="next-trains"><div class="next-trains-title">系統自動帶入最近班次，可選擇其他班次：</div><div id="train-options"></div></div></div>
+    <div class="section-divider">旅客外觀特徵（可選填）</div>
+    <div class="field-row"><span class="field-key">人數</span><input class="field-input" id="f-n1" type="text" placeholder="例：2人"></div>
+    <div class="field-row"><span class="field-key">陪同者</span><input class="field-input" id="f-n2" type="text" placeholder="例：家屬1名"></div>
+    <div class="field-row"><span class="field-key">上衣顏色</span><input class="field-input" id="f-n3" type="text" placeholder="例：白色"></div>
+    <div class="field-row"><span class="field-key">褲／裙顏色</span><input class="field-input" id="f-n4" type="text" placeholder="例：深藍色"></div>
+    <div class="field-row"><span class="field-key">其他特徵</span><input class="field-input" id="f-n5" type="text" placeholder="例：戴帽子、攜帶行李箱"></div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="closeFormModal()">取消</button><button class="btn btn-primary" onclick="submitEvent()"><i class="ti ti-check"></i><span id="mf-submit">建立事件</span></button></div>
+</div>
+</div>
+
+<!-- 歷史編輯 Modal -->
+<div class="modal-bg" id="modal-history-edit">
+<div class="modal" style="width:440px">
+  <div class="modal-header"><div class="modal-title">編輯歷史紀錄</div><button class="btn btn-sm" onclick="document.getElementById('modal-history-edit').classList.remove('open')"><i class="ti ti-x"></i></button></div>
+  <div class="modal-body">
+    <input type="hidden" id="he-id">
+    <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px;font-size:12px;color:var(--color-text-secondary)" id="he-route-display"></div>
+    <div class="form-group"><div class="form-label">完成狀態</div>
+      <select id="he-status" onchange="document.getElementById('he-reason-wrap').style.display=this.value==='未完成'?'flex':'none'">
+        <option value="完成">完成</option><option value="未完成">未完成</option>
+      </select>
+    </div>
+    <div class="form-group" id="he-reason-wrap" style="display:none"><div class="form-label">未完成原因</div><textarea id="he-reason" placeholder="請填寫未完成原因..."></textarea></div>
+    <div class="form-group"><div class="form-label">備註</div><textarea id="he-note" placeholder="備註內容..."></textarea></div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="document.getElementById('modal-history-edit').classList.remove('open')">取消</button><button class="btn btn-primary" onclick="saveHistoryEdit()"><i class="ti ti-check"></i> 儲存</button></div>
+</div>
+</div>
+
+<!-- 帳號新增/編輯 Modal -->
+<div class="modal-bg" id="modal-acc">
+<div class="modal" style="width:460px">
+  <div class="modal-header"><div class="modal-title" id="acc-modal-title">新增帳號</div><button class="btn btn-sm" onclick="document.getElementById('modal-acc').classList.remove('open')"><i class="ti ti-x"></i></button></div>
+  <div class="modal-body">
+    <input type="hidden" id="acc-edit-id">
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">帳號 <span>*</span></div><input type="text" id="acc-username" placeholder="例：g9_chen"></div>
+      <div class="form-group"><div class="form-label">姓名 <span>*</span></div><input type="text" id="acc-name" placeholder="例：陳美玲"></div>
+    </div>
+    <div class="form-group"><div class="form-label">密碼 <span>*</span></div>
+      <div class="pwd-wrap"><input type="password" id="acc-pwd" placeholder="請輸入密碼"><button class="pwd-eye" onclick="togglePwd('acc-pwd',this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">車站 <span>*</span></div><input type="text" id="acc-station" placeholder="例：G9 市政府"></div>
+      <div class="form-group"><div class="form-label">層級 <span>*</span></div>
+        <select id="acc-role"><option value="S">S 級（系統管理員）</option><option value="A">A 級（站務主管）</option><option value="B" selected>B 級（一般站務員）</option></select>
+      </div>
+    </div>
+    <div class="form-group"><div class="form-label">綁定 IP <span style="color:var(--color-text-tertiary);font-weight:400">（選填，留空則不限制來源裝置）</span></div><input type="text" id="acc-ip" placeholder="例：192.168.9.22　留空不限制"></div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="document.getElementById('modal-acc').classList.remove('open')">取消</button><button class="btn btn-primary" onclick="saveAcc()"><i class="ti ti-check"></i> 儲存</button></div>
+</div>
+</div>
+
+<!-- 暫停原因 Modal -->
+<div class="modal-bg" id="modal-suspend">
+<div class="modal" style="width:440px">
+  <div class="modal-header"><div class="modal-title">⚠️ 暫停本頁面使用</div><button class="btn btn-sm" onclick="document.getElementById('modal-suspend').classList.remove('open')"><i class="ti ti-x"></i></button></div>
+  <div class="modal-body">
+    <div class="info-block"><div>暫停期間：<strong>禁止新增事件</strong></div><div>進行中任務：<strong>不受影響，直至倒數完畢 + 結案</strong></div><div>恢復後時刻表：<strong>自動判斷，如有錯誤可手動修正</strong></div></div>
+    <div class="form-group"><div class="form-label">暫停原因 <span>*</span></div>
+      <select id="s-reason" onchange="onSReasonChange()"><option value="">請選擇原因</option><option value="颱風天班距異常">颱風天班距異常</option><option value="列車異常">列車異常</option><option value="ATS 系統異常">ATS 系統異常</option><option value="班距版次錯誤">班距版次錯誤</option><option value="other">其他</option></select>
+      <div class="err-msg" id="s-reason-err"></div>
+    </div>
+    <div class="form-group" id="s-other-wrap" style="display:none"><div class="form-label">請說明原因 <span>*</span></div><textarea id="s-other" placeholder="請輸入暫停原因..."></textarea><div class="err-msg" id="s-other-err"></div></div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="document.getElementById('modal-suspend').classList.remove('open')">取消</button><button class="btn btn-warning" onclick="executeSuspend()"><i class="ti ti-player-pause"></i> 確認暫停</button></div>
+</div>
+</div>
+
+<!-- 警示彈窗 -->
+<div class="alert-bg" id="alert-bg">
+  <div class="alert-box" id="alert-box">
+    <div class="alert-icon" id="a-icon"></div>
+    <div class="alert-title" id="a-title"></div>
+    <div class="alert-info" id="a-info"></div>
+    <div id="a-extra"></div>
+    <div id="a-btns" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── 帳號資料庫 ── */
+let ACCOUNTS=[
+  {id:'a1',username:'110219',name:'林維辰',password:'zxc110219',station:'北段辦',role:'S',ip:'172.21.26.11',status:'啟用',lastLogin:'2026/06/04 08:42',lastLoginIp:'172.21.26.11'},
+];
+let nextAccId=2;
+
+/* ── 登入邏輯 ── */
+let loginAttempts=0,lockTimer=null,lockRemain=300,CU=null;
+
+function clearLoginErr(){
+  document.getElementById('l-err').textContent='';
+  document.getElementById('l-acc').classList.remove('inp-err');
+  document.getElementById('l-pwd').classList.remove('inp-err');
+}
+function toggleLoginEye(){
+  const inp=document.getElementById('l-pwd'),icon=document.getElementById('eye-icon');
+  if(inp.type==='password'){inp.type='text';icon.className='ti ti-eye-off';}
+  else{inp.type='password';icon.className='ti ti-eye';}
+}
+function togglePwd(inputId,btn){
+  const inp=document.getElementById(inputId),icon=btn.querySelector('i');
+  if(inp.type==='password'){inp.type='text';icon.className='ti ti-eye-off';}
+  else{inp.type='password';icon.className='ti ti-eye';}
+}
+function doLogin(){
+  if(lockTimer)return;
+  const acc=document.getElementById('l-acc').value.trim();
+  const pwd=document.getElementById('l-pwd').value;
+  const errEl=document.getElementById('l-err');
+  if(!acc||!pwd){errEl.innerHTML='<i class="ti ti-alert-circle"></i> 請輸入帳號與密碼';if(!acc)document.getElementById('l-acc').classList.add('inp-err');if(!pwd)document.getElementById('l-pwd').classList.add('inp-err');return;}
+  const user=ACCOUNTS.find(u=>u.username===acc&&u.status==='啟用');
+  if(!user){errEl.innerHTML='<i class="ti ti-alert-circle"></i> 帳號不存在或已停用';document.getElementById('l-acc').classList.add('inp-err');return;}
+  if(user.password!==pwd){
+    loginAttempts++;
+    document.getElementById('l-acc').classList.add('inp-err');
+    document.getElementById('l-pwd').classList.add('inp-err');
+    document.getElementById('l-pwd').value='';
+    const remain=5-loginAttempts;
+    if(loginAttempts>=5){startLock();}
+    else{errEl.innerHTML='<i class="ti ti-alert-circle"></i> 帳號或密碼錯誤';document.getElementById('l-attempt').textContent='還可嘗試 '+remain+' 次，達 5 次將鎖定 5 分鐘';}
+    return;
+  }
+  loginAttempts=0;
+  CU=user;
+  const prevLogin=user.lastLogin||'—';
+  const prevIp=user.lastLoginIp||'—';
+  user.lastLogin=nowStr();
+  user.lastLoginIp=user.ip;
+  loginSuccess(prevLogin,prevIp);
+}
+function nowStr(){const n=new Date();return n.getFullYear()+'/'+(n.getMonth()+1).toString().padStart(2,'0')+'/'+n.getDate().toString().padStart(2,'0')+' '+n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0');}
+function startLock(){
+  lockRemain=300;
+  document.getElementById('login-form').style.display='none';
+  document.getElementById('lock-wrap').style.display='block';
+  updateLockCd();
+  lockTimer=setInterval(()=>{lockRemain--;updateLockCd();if(lockRemain<=0){clearInterval(lockTimer);lockTimer=null;loginAttempts=0;document.getElementById('lock-wrap').style.display='none';document.getElementById('login-form').style.display='block';document.getElementById('l-attempt').textContent='帳號已解鎖，請重新登入';document.getElementById('l-pwd').value='';}},1000);
+}
+function updateLockCd(){const m=Math.floor(lockRemain/60),s=lockRemain%60;document.getElementById('lock-cd').textContent=m.toString().padStart(2,'0')+':'+s.toString().padStart(2,'0');}
+function loginSuccess(prevLogin,prevIp){
+  document.getElementById('last-toast-text').textContent='上次登入：'+prevLogin+'　來源 IP：'+prevIp;
+  const toast=document.getElementById('last-toast');toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),4500);
+  const badgeColor={S:'badge-purple',A:'badge-blue',B:'badge-gray'}[CU.role]||'badge-gray';
+  document.getElementById('sidebar-user-badge').innerHTML='<span class="badge '+badgeColor+'">'+CU.role+'級</span><span style="color:var(--color-text-secondary)">'+CU.name+' · '+CU.station+'</span>';
+  document.getElementById('last-login-time').textContent=prevLogin;
+  document.getElementById('last-login-ip').textContent=prevIp;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('main-screen').style.display='block';
+  renderAccounts();renderHistory();renderLog(LOGS);renderEvents();renderTTBanner();renderSuspendBtn();buildSound();renderTTTable();initTTTableEvents();renderCalMain();
+  setInterval(()=>{tick();renderEvents();},1000);tick();
+}
+function doLogout(){if(confirm('確定登出？')){CU=null;document.getElementById('main-screen').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('l-acc').value='';document.getElementById('l-pwd').value='';document.getElementById('l-err').textContent='';document.getElementById('l-attempt').textContent='';}}
+function uploadLogo(input){
+  const file=input.files[0];if(!file)return;
+  const url=URL.createObjectURL(file);
+  const img=document.getElementById('logo-img');
+  if(img){img.src=url;}
+}
+
+/* ── 帳號管理 ── */
+function renderAccounts(){
+  const rb={S:'badge-purple',A:'badge-blue',B:'badge-gray'};
+  const tbody=document.getElementById('accounts-body');if(!tbody)return;
+  tbody.innerHTML=ACCOUNTS.map(u=>`
+    <tr>
+      <td style="font-weight:500">${u.username}</td>
+      <td>${u.name}</td>
+      <td>${u.station}</td>
+      <td><span class="badge ${rb[u.role]||'badge-gray'}">${u.role}</span></td>
+      <td><span style="font-size:12px;font-family:var(--font-mono);background:var(--color-background-secondary);padding:2px 6px;border-radius:var(--border-radius-md)">${u.password}</span></td>
+      <td style="font-size:11px">${u.ip?'<span style="font-family:var(--font-mono)">'+ u.ip +'</span>':'<span style="color:var(--color-text-tertiary)">不限制</span>'}</td>
+      <td><span class="badge ${u.status==='啟用'?'badge-green':'badge-gray'}">${u.status}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="openAccEdit('${u.id}')"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A;margin-left:3px" onclick="deleteAcc('${u.id}')"><i class="ti ti-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+function openAccModal(){
+  document.getElementById('acc-edit-id').value='';
+  document.getElementById('acc-modal-title').textContent='新增帳號';
+  document.getElementById('acc-username').value='';
+  document.getElementById('acc-name').value='';
+  document.getElementById('acc-pwd').value='';
+  document.getElementById('acc-station').value='';
+  document.getElementById('acc-role').value='B';
+  document.getElementById('acc-ip').value='';
+  document.getElementById('modal-acc').classList.add('open');
+}
+function openAccEdit(id){
+  const u=ACCOUNTS.find(x=>x.id===id);if(!u)return;
+  document.getElementById('acc-edit-id').value=id;
+  document.getElementById('acc-modal-title').textContent='編輯帳號';
+  document.getElementById('acc-username').value=u.username;
+  document.getElementById('acc-name').value=u.name;
+  document.getElementById('acc-pwd').value=u.password;
+  document.getElementById('acc-station').value=u.station;
+  document.getElementById('acc-role').value=u.role;
+  document.getElementById('acc-ip').value=u.ip;
+  document.getElementById('modal-acc').classList.add('open');
+}
+function saveAcc(){
+  const eid=document.getElementById('acc-edit-id').value;
+  const uname=document.getElementById('acc-username').value.trim();
+  const name=document.getElementById('acc-name').value.trim();
+  const pwd=document.getElementById('acc-pwd').value;
+  const station=document.getElementById('acc-station').value.trim();
+  const role=document.getElementById('acc-role').value;
+  const ip=document.getElementById('acc-ip').value.trim();
+  if(!uname||!name||!pwd||!station){showToast('請填寫所有必填欄位');return;}
+  if(eid){
+    const u=ACCOUNTS.find(x=>x.id===eid);if(!u)return;
+    u.username=uname;u.name=name;u.password=pwd;u.station=station;u.role=role;u.ip=ip;
+  } else {
+    ACCOUNTS.push({id:'a'+nextAccId++,username:uname,name,password:pwd,station,role,ip,status:'啟用',lastLogin:'—',lastLoginIp:'—'});
+  }
+  document.getElementById('modal-acc').classList.remove('open');
+  renderAccounts();showToast('帳號已儲存');
+}
+function deleteAcc(id){
+  if(id==='a1'){showToast('無法刪除主要管理員帳號');return;}
+  if(confirm('確定刪除此帳號？')){ACCOUNTS=ACCOUNTS.filter(u=>u.id!==id);renderAccounts();showToast('帳號已刪除');}
+}
+
+/* ── 站碼順序 ── */
+const ST_ORDER=['G0','G3','G4','G5','G6','G7','G8','G8a','G9','G10','G10a','G11','G12','G13','G14','G15','G16','G17'];
+const SN={G0:'北屯總站',G3:'舊社',G4:'松竹',G5:'四維國小',G6:'文心崇德',G7:'文心中清',G8:'文華高中',G8a:'文心櫻花',G9:'市政府',G10:'水安宮',G10a:'文心森林公園',G11:'南屯',G12:'豐樂公園',G13:'大慶',G14:'九張犁',G15:'九德',G16:'烏日',G17:'高鐵臺中站'};
+function calcDir(from,to){const fi=ST_ORDER.indexOf(from),ti=ST_ORDER.indexOf(to);if(fi===-1||ti===-1||fi===ti)return'down';return ti>fi?'down':'up';}
+
+/* ── 時刻表 ── */
+const TD={G9:["06:00", "06:09", "06:17", "06:25", "06:33", "06:39", "06:45", "06:51", "06:57", "07:03", "07:09", "07:15", "07:21", "07:27", "07:33", "07:39", "07:45", "07:51", "07:57", "08:03", "08:09", "08:15", "08:21", "08:27", "08:33", "08:39", "08:45", "08:51", "08:57", "09:03", "09:09", "09:15", "09:22", "09:30", "09:39", "09:48", "09:57", "10:06", "10:15", "10:24", "10:33", "10:42", "10:51", "11:00", "11:09", "11:18", "11:27", "11:36", "11:45", "11:54", "12:03", "12:12", "12:21", "12:30", "12:39", "12:48", "12:57", "13:06", "13:15", "13:24", "13:33", "13:42", "13:51", "14:00", "14:09", "14:18", "14:27", "14:36", "14:45", "14:54", "15:03", "15:12", "15:21", "15:30", "15:39", "15:48", "15:57", "16:04", "16:10", "16:16", "16:22", "16:28", "16:34", "16:40", "16:46", "16:52", "16:58", "17:04", "17:10", "17:16", "17:22", "17:28", "17:34", "17:40", "17:46", "17:52", "17:58", "18:04", "18:10", "18:16", "18:21", "18:26", "18:31", "18:36", "18:41", "18:46", "18:52", "18:58", "19:04", "19:10", "19:16", "19:22", "19:29", "19:38", "19:47", "19:56", "20:05", "20:14", "20:23", "20:32", "20:41", "20:50", "20:59", "21:08", "21:17", "21:26", "21:35", "21:44", "21:53", "22:02", "22:11", "22:20", "22:29", "22:38", "22:47", "22:56", "23:05", "23:14", "23:23", "23:37", "23:57", "00:17"]};
+const TU={G9:["06:00", "06:10", "06:18", "06:26", "06:34", "06:43", "06:51", "06:57", "07:03", "07:09", "07:15", "07:21", "07:27", "07:33", "07:39", "07:45", "07:51", "07:57", "08:03", "08:09", "08:15", "08:21", "08:27", "08:33", "08:39", "08:45", "08:51", "08:57", "09:03", "09:09", "09:15", "09:21", "09:27", "09:33", "09:39", "09:47", "09:56", "10:05", "10:14", "10:23", "10:32", "10:41", "10:50", "10:59", "11:08", "11:17", "11:26", "11:35", "11:44", "11:53", "12:02", "12:11", "12:20", "12:29", "12:38", "12:47", "12:56", "13:05", "13:14", "13:23", "13:32", "13:41", "13:50", "13:59", "14:08", "14:17", "14:26", "14:35", "14:44", "14:53", "15:02", "15:11", "15:20", "15:29", "15:38", "15:47", "15:56", "16:05", "16:14", "16:23", "16:32", "16:38", "16:44", "16:50", "16:56", "17:02", "17:08", "17:14", "17:20", "17:26", "17:32", "17:38", "17:44", "17:50", "17:55", "18:01", "18:07", "18:13", "18:19", "18:25", "18:31", "18:37", "18:43", "18:49", "18:55", "19:01", "19:07", "19:13", "19:19", "19:25", "19:31", "19:37", "19:43", "19:49", "19:55", "20:01", "20:09", "20:18", "20:27", "20:36", "20:45", "20:54", "21:03", "21:12", "21:21", "21:30", "21:39", "21:48", "21:57", "22:06", "22:15", "22:24", "22:33", "22:42", "22:51", "23:00", "23:09", "23:18", "23:27", "23:36", "23:45", "23:54", "00:03", "00:14", "00:25"]};
+const TH1D={G9:["06:00", "06:09", "06:17", "06:27", "06:35", "06:45", "06:55", "07:05", "07:15", "07:25", "07:35", "07:45", "07:55", "08:05", "08:15", "08:25", "08:35", "08:45", "08:55", "09:05", "09:15", "09:25", "09:33", "09:41", "09:48", "09:56", "10:03", "10:11", "10:18", "10:26", "10:33", "10:41", "10:48", "10:56", "11:03", "11:11", "11:18", "11:26", "11:33", "11:41", "11:48", "11:55", "12:02", "12:09", "12:16", "12:23", "12:30", "12:38", "12:46", "12:54", "13:02", "13:10", "13:18", "13:26", "13:34", "13:42", "13:50", "13:58", "14:06", "14:14", "14:22", "14:30", "14:38", "14:46", "14:54", "15:02", "15:10", "15:18", "15:26", "15:34", "15:42", "15:50", "15:58", "16:06", "16:14", "16:22", "16:30", "16:38", "16:46", "16:54", "17:02", "17:10", "17:18", "17:26", "17:34", "17:42", "17:50", "17:58", "18:06", "18:14", "18:22", "18:30", "18:38", "18:46", "18:54", "19:02", "19:10", "19:18", "19:26", "19:34", "19:42", "19:50", "19:58", "20:06", "20:14", "20:22", "20:30", "20:37", "20:47", "20:57", "21:07", "21:17", "21:27", "21:37", "21:47", "21:57", "22:07", "22:17", "22:27", "22:37", "22:47", "22:57", "23:07", "23:17", "23:37", "23:57", "00:17"]};
+const TH1U={G9:["06:00", "06:10", "06:18", "06:28", "06:37", "06:47", "06:57", "07:07", "07:18", "07:28", "07:38", "07:48", "07:58", "08:08", "08:18", "08:28", "08:38", "08:48", "08:58", "09:08", "09:18", "09:28", "09:38", "09:48", "09:55", "10:02", "10:10", "10:17", "10:25", "10:32", "10:40", "10:47", "10:55", "11:02", "11:10", "11:17", "11:25", "11:32", "11:40", "11:47", "11:55", "12:02", "12:09", "12:16", "12:23", "12:30", "12:38", "12:46", "12:54", "13:02", "13:10", "13:18", "13:26", "13:34", "13:42", "13:50", "13:58", "14:06", "14:14", "14:22", "14:30", "14:38", "14:46", "14:54", "15:02", "15:10", "15:18", "15:26", "15:34", "15:42", "15:50", "15:58", "16:06", "16:14", "16:22", "16:30", "16:38", "16:46", "16:54", "17:02", "17:10", "17:18", "17:26", "17:34", "17:42", "17:50", "17:58", "18:06", "18:14", "18:22", "18:30", "18:38", "18:46", "18:54", "19:02", "19:10", "19:18", "19:26", "19:34", "19:42", "19:51", "19:59", "20:07", "20:15", "20:23", "20:31", "20:39", "20:47", "20:55", "21:02", "21:12", "21:22", "21:32", "21:42", "21:52", "22:02", "22:12", "22:22", "22:32", "22:42", "22:52", "23:02", "23:12", "23:22", "23:32", "23:42", "23:52", "00:01"]};
+const THRD={G9:["06:00", "06:09", "06:17", "06:27", "06:35", "06:45", "06:55", "07:05", "07:15", "07:25", "07:35", "07:45", "07:55", "08:05", "08:15", "08:25", "08:35", "08:45", "08:55", "09:05", "09:13", "09:21", "09:29", "09:37", "09:45", "09:53", "10:01", "10:09", "10:17", "10:25", "10:33", "10:41", "10:49", "10:57", "11:05", "11:13", "11:21", "11:29", "11:37", "11:45", "11:53", "12:01", "12:09", "12:17", "12:25", "12:33", "12:41", "12:49", "12:57", "13:05", "13:13", "13:21", "13:29", "13:37", "13:45", "13:53", "14:01", "14:09", "14:17", "14:25", "14:33", "14:41", "14:49", "14:57", "15:05", "15:13", "15:21", "15:29", "15:37", "15:45", "15:53", "16:01", "16:09", "16:17", "16:25", "16:33", "16:41", "16:48", "16:56", "17:03", "17:11", "17:18", "17:26", "17:33", "17:41", "17:48", "17:56", "18:03", "18:11", "18:18", "18:26", "18:33", "18:41", "18:48", "18:56", "19:03", "19:11", "19:18", "19:26", "19:33", "19:41", "19:48", "19:56", "20:03", "20:10", "20:17", "20:27", "20:37", "20:47", "20:57", "21:07", "21:17", "21:27", "21:37", "21:47", "21:57", "22:07", "22:17", "22:27", "22:37", "22:47", "22:57", "23:07", "23:17", "23:37", "23:57", "00:17"]};
+const THRU={G9:["06:00", "06:10", "06:18", "06:28", "06:37", "06:47", "06:57", "07:07", "07:18", "07:28", "07:38", "07:48", "07:58", "08:08", "08:18", "08:28", "08:38", "08:48", "08:58", "09:08", "09:18", "09:28", "09:38", "09:48", "09:56", "10:04", "10:12", "10:20", "10:28", "10:36", "10:44", "10:52", "11:00", "11:08", "11:16", "11:24", "11:32", "11:40", "11:48", "11:56", "12:04", "12:12", "12:20", "12:28", "12:36", "12:44", "12:52", "13:00", "13:08", "13:16", "13:24", "13:32", "13:40", "13:48", "13:56", "14:04", "14:12", "14:20", "14:28", "14:36", "14:44", "14:52", "15:00", "15:08", "15:16", "15:24", "15:32", "15:40", "15:48", "15:56", "16:04", "16:11", "16:19", "16:26", "16:34", "16:41", "16:49", "16:56", "17:04", "17:13", "17:21", "17:28", "17:36", "17:43", "17:51", "17:58", "18:06", "18:13", "18:21", "18:28", "18:36", "18:43", "18:51", "18:58", "19:06", "19:13", "19:21", "19:28", "19:36", "19:43", "19:51", "19:58", "20:05", "20:12", "20:19", "20:29", "20:39", "20:49", "20:59", "21:09", "21:19", "21:29", "21:39", "21:49", "21:59", "22:09", "22:19", "22:29", "22:39", "22:49", "22:59", "23:09", "23:19", "23:39", "23:59", "00:19"]};
+const TT_LABELS={auto:'平日尖峰6分鐘離峰9分鐘深夜20分鐘　常態－平日　2026/01/10 上傳',W05:'平日尖峰6分鐘離峰9分鐘深夜20分鐘　常態－平日　2026/01/10 上傳',H1:'假期首日尖峰7.5分離峰8分　常態－假期首日　2026/01/10 上傳',H2:'假期其餘日離峰9.5分　常態－假期其餘日　2026/01/10 上傳'};
+let ttMode='auto',suspended=false;
+
+function autoDir(){
+  const from=document.getElementById('f-from').value;
+  const to=document.getElementById('f-to').value;
+  const dir=calcDir(from,to);
+  document.getElementById('f-dir').value=dir;
+  document.getElementById('dir-display').textContent=dir==='down'?'↓ 下行（往高鐵臺中站）':'↑ 上行（往北屯總站）';
+  updateTrains();
+}
+function renderTTBanner(){
+  const w=document.getElementById('tt-banner-wrap');if(!w)return;
+  if(suspended){w.innerHTML='<div class="tt-banner suspended"><i class="ti ti-alert-triangle" style="font-size:15px"></i><strong>系統暫停使用中</strong></div>';return;}
+  const isM=ttMode!=='auto';
+  const tag=isM?'<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:#FAEEDA;color:#633806;font-weight:500">手動指定</span>':'<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:#EAF3DE;color:#27500A;font-weight:500">自動</span>';
+  w.innerHTML='<div class="tt-banner normal"><i class="ti ti-calendar-check" style="font-size:14px"></i>'+tag+'<span>目前使用時刻表：'+(TT_LABELS[ttMode]||TT_LABELS.auto)+'</span></div>';
+}
+function renderSuspendOverlay(){
+  const w=document.getElementById('suspend-overlay-wrap');const btn=document.getElementById('add-btn');
+  if(!w)return;
+  if(!suspended){w.innerHTML='';if(btn){btn.disabled=false;btn.style.opacity='';btn.style.cursor='';}return;}
+  w.innerHTML='<div class="suspend-overlay"><div style="font-size:28px;margin-bottom:6px">⚠️</div><div style="font-size:14px;font-weight:500;color:#791F1F;margin-bottom:4px">警告：本頁面暫停使用</div><div style="font-size:12px;color:#A32D2D;margin-bottom:12px">因無串接 ATS 系統，本頁面暫停使用。<br>進行中的任務不受影響，新增功能已停用。</div><button class="btn btn-restore btn-sm" onclick="executeRestore()"><i class="ti ti-player-play"></i> 恢復使用</button></div>';
+  if(btn){btn.disabled=true;btn.style.opacity='0.4';btn.style.cursor='not-allowed';}
+}
+function renderSuspendBtn(){const w=document.getElementById('suspend-btn-area');if(!w)return;w.innerHTML=suspended?'<button class="btn btn-restore btn-sm" onclick="executeRestore()"><i class="ti ti-player-play"></i> 恢復使用</button>':'<button class="btn btn-warning btn-sm" onclick="openSuspendModal()"><i class="ti ti-player-pause"></i> 暫停本頁面使用</button>';}
+function onTTChange(){const v=document.getElementById('tt-sel').value;const cur=document.getElementById('tt-current');const tag=v==='auto'?'<span class="tt-auto-tag">自動</span>':'<span class="tt-manual-tag">手動指定</span>';cur.innerHTML=tag+'<span>'+(v==='auto'?'目前自動判斷結果：'+TT_LABELS.auto:'選擇後點套用生效')+'</span>';}
+function applyTT(){ttMode=document.getElementById('tt-sel').value;const cur=document.getElementById('tt-current');const isM=ttMode!=='auto';const tag=isM?'<span class="tt-manual-tag">手動指定（已套用）</span>':'<span class="tt-auto-tag">自動（已套用）</span>';cur.innerHTML=tag+'<span>'+(TT_LABELS[ttMode]||TT_LABELS.auto)+'</span>';renderTTBanner();showToast(isM?'已手動套用時刻表版次':'已切換回自動判斷');}
+function openSuspendModal(){document.getElementById('s-reason').value='';document.getElementById('s-other-wrap').style.display='none';document.getElementById('s-reason-err').textContent='';document.getElementById('s-other-err').textContent='';document.getElementById('modal-suspend').classList.add('open');}
+function onSReasonChange(){document.getElementById('s-other-wrap').style.display=document.getElementById('s-reason').value==='other'?'block':'none';document.getElementById('s-reason-err').textContent='';document.getElementById('s-other-err').textContent='';}
+function executeSuspend(){const sel=document.getElementById('s-reason').value;const other=document.getElementById('s-other').value.trim();if(!sel){document.getElementById('s-reason-err').innerHTML='<i class="ti ti-alert-circle"></i> 請選擇暫停原因';return;}if(sel==='other'&&!other){document.getElementById('s-other-err').innerHTML='<i class="ti ti-alert-circle"></i> 請填寫說明';return;}const reason=sel==='other'?other:sel;suspended=true;ttMode='auto';document.getElementById('modal-suspend').classList.remove('open');renderTTBanner();renderSuspendOverlay();renderSuspendBtn();showToast('已暫停使用（'+reason+'），原因已記錄至 Log');}
+function executeRestore(){suspended=false;renderTTBanner();renderSuspendOverlay();renderSuspendBtn();showToast('已恢復使用，時刻表自動判斷中');}
+
+/* ── 歷史查詢 ── */
+let historyData=[
+  {id:'h1',time:'06/03 14:22',from:'G9',to:'G17',dir:'down',type:'輪椅旅客',trainGroup:'07/08',status:'完成',creator:'林維辰',note:'白色上衣',reason:''},
+  {id:'h2',time:'06/03 11:05',from:'G9',to:'G0',dir:'up',type:'年長旅客',trainGroup:'03/04',status:'未完成',creator:'林維辰',note:'藍色上衣',reason:'旅客自行離去'},
+  {id:'h3',time:'06/02 17:38',from:'G9',to:'G13',dir:'down',type:'視障旅客',trainGroup:'15/16',status:'完成',creator:'陳美玲',note:'攜帶導盲犬',reason:''},
+];
+function renderHistory(){
+  const tbody=document.getElementById('history-body');if(!tbody)return;
+  tbody.innerHTML=historyData.map(r=>`<tr><td>${r.time}</td><td>${r.from}→${r.to} ${r.dir==='down'?'下行':'上行'}</td><td><span class="badge badge-blue">${r.type}</span></td><td>${r.trainGroup}</td><td><span class="badge ${r.status==='完成'?'badge-green':'badge-red'}">${r.status}</span></td><td>${r.creator}</td><td style="font-size:11px;color:var(--color-text-secondary);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.note||'—'}</td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openHistoryEdit('${r.id}')"><i class="ti ti-edit"></i></button><button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A;margin-left:3px" onclick="deleteHistory('${r.id}')"><i class="ti ti-trash"></i></button></td></tr>`).join('');
+}
+function openHistoryEdit(id){const r=historyData.find(x=>x.id===id);if(!r)return;document.getElementById('he-id').value=id;document.getElementById('he-route-display').textContent=r.from+' '+(SN[r.from]||'')+' → '+r.to+' '+(SN[r.to]||'')+' ('+(r.dir==='down'?'下行':'上行')+') · '+r.type;document.getElementById('he-status').value=r.status;document.getElementById('he-reason').value=r.reason||'';document.getElementById('he-note').value=r.note||'';document.getElementById('he-reason-wrap').style.display=r.status==='未完成'?'flex':'none';document.getElementById('modal-history-edit').classList.add('open');}
+function saveHistoryEdit(){const id=document.getElementById('he-id').value;const r=historyData.find(x=>x.id===id);if(!r)return;r.status=document.getElementById('he-status').value;r.reason=document.getElementById('he-reason').value;r.note=document.getElementById('he-note').value;document.getElementById('modal-history-edit').classList.remove('open');renderHistory();showToast('歷史紀錄已更新');}
+function deleteHistory(id){if(confirm('確定刪除此筆歷史紀錄？')){historyData=historyData.filter(x=>x.id!==id);renderHistory();showToast('已刪除');}}
+
+/* ── Log ── */
+const OP_L={login:'登入',create:'新增事件',edit:'編輯事件',delete:'刪除事件',export:'匯出報表',upload:'上傳時刻表',suspend:'暫停/恢復'};
+const OP_C={login:'op-login',create:'op-create',edit:'op-edit',delete:'op-delete',export:'op-export',upload:'op-upload',suspend:'op-suspend'};
+const LOGS=[
+  {time:'2026/06/04 08:42:11',acc:'110219',name:'林維辰',role:'S',op:'login',desc:'登入系統',ip:'172.21.26.11',ok:true},
+  {time:'2026/06/04 08:45:22',acc:'110219',name:'林維辰',role:'S',op:'create',desc:'新增事件 #0023 G9→G17 輪椅旅客',ip:'172.21.26.11',ok:true},
+  {time:'2026/06/04 11:00:00',acc:'110219',name:'林維辰',role:'S',op:'export',desc:'匯出 5 月份月報',ip:'172.21.26.11',ok:true},
+  {time:'2026/06/04 11:45:12',acc:'110219',name:'林維辰',role:'S',op:'suspend',desc:'暫停頁面使用（颱風天班距異常）',ip:'172.21.26.11',ok:true},
+];
+function renderLog(data){const rb={S:'badge-purple',A:'badge-blue',B:'badge-gray'};document.getElementById('log-body').innerHTML=data.map(r=>`<tr><td style="font-size:11px;white-space:nowrap;font-family:monospace">${r.time}</td><td style="font-size:11px;font-weight:500">${r.acc}</td><td>${r.name}</td><td><span class="badge ${rb[r.role]||'badge-gray'}">${r.role}</span></td><td><span class="log-op-badge ${r.ok?OP_C[r.op]:'op-fail'}">${OP_L[r.op]||r.op}</span></td><td style="font-size:11px;color:var(--color-text-secondary)">${r.desc}</td><td style="font-size:11px;font-family:monospace">${r.ip}</td><td style="${r.ok?'color:#1D9E75':'color:#E24B4A'};font-size:13px">${r.ok?'✓':'✗'}</td></tr>`).join('');document.getElementById('log-count').textContent='共 '+data.length+' 筆記錄';}
+function filterLog(){const op=document.getElementById('lf-op').value,role=document.getElementById('lf-role').value;renderLog(LOGS.filter(r=>(!op||r.op===op)&&(!role||r.role===role)));}
+
+/* ── 音效 ── */
+let audioCtx=null;
+function ga(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function bip(a,f,dur,t,v){const o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=f;g.gain.setValueAtTime((v||0.7)*0.28,a.currentTime+t);g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+t+dur);o.start(a.currentTime+t);o.stop(a.currentTime+t+dur+0.01);}
+const PRESETS={warn:[{id:'w1',name:'雙嗶提示',tag:'輕柔',fn:(v)=>{const a=ga();[[880,0],[880,0.25]].forEach(([f,t])=>bip(a,f,0.18,t,v));}},{id:'w2',name:'三連嗶',tag:'清晰',fn:(v)=>{const a=ga();[[1000,0],[1000,0.2],[1000,0.4]].forEach(([f,t])=>bip(a,f,0.15,t,v));}},{id:'w3',name:'上升嗶嗶',tag:'明顯',fn:(v)=>{const a=ga();[[800,0],[1000,0.22]].forEach(([f,t])=>bip(a,f,0.18,t,v));}},{id:'w4',name:'鐘聲單音',tag:'悠揚',fn:(v)=>{const a=ga(),o=a.createOscillator(),g=a.createGain();o.type='sine';o.connect(g);g.connect(a.destination);o.frequency.value=987;g.gain.setValueAtTime(v*0.3,a.currentTime);g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+1.2);o.start();o.stop(a.currentTime+1.3);}},{id:'w5',name:'廣播提示音',tag:'廣播感',fn:(v)=>{const a=ga();[[440,0],[554,0.15],[659,0.3]].forEach(([f,t])=>bip(a,f,0.12,t,v));}},{id:'w6',name:'電子嗶聲',tag:'俐落',fn:(v)=>{const a=ga(),o=a.createOscillator(),g=a.createGain();o.type='square';o.connect(g);g.connect(a.destination);o.frequency.value=750;g.gain.setValueAtTime(v*0.12,a.currentTime);g.gain.setValueAtTime(0,a.currentTime+0.12);o.start();o.stop(a.currentTime+0.13);}}],danger:[{id:'d1',name:'急促雙音',tag:'緊急感',fn:(v)=>{const a=ga();[[1200,0],[900,0.15],[1200,0.3],[900,0.45]].forEach(([f,t])=>bip(a,f,0.12,t,v));}},{id:'d2',name:'警報上升',tag:'強烈',fn:(v)=>{const a=ga(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.setValueAtTime(800,a.currentTime);o.frequency.linearRampToValueAtTime(1400,a.currentTime+0.4);g.gain.setValueAtTime(v*0.28,a.currentTime);g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+0.45);o.start();o.stop(a.currentTime+0.5);}},{id:'d3',name:'快速三連',tag:'急促',fn:(v)=>{const a=ga();[[1100,0],[1100,0.13],[1100,0.26]].forEach(([f,t])=>bip(a,f,0.1,t,v));}},{id:'d4',name:'警笛短音',tag:'警示',fn:(v)=>{const a=ga(),o=a.createOscillator(),g=a.createGain();o.type='sawtooth';o.connect(g);g.connect(a.destination);o.frequency.setValueAtTime(1000,a.currentTime);o.frequency.setValueAtTime(1300,a.currentTime+0.1);o.frequency.setValueAtTime(1000,a.currentTime+0.2);g.gain.setValueAtTime(v*0.18,a.currentTime);g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+0.35);o.start();o.stop(a.currentTime+0.4);}},{id:'d5',name:'緊急嗶鳴',tag:'穿透',fn:(v)=>{const a=ga();[[1400,0],[1400,0.1],[1400,0.2],[1400,0.3]].forEach(([f,t])=>bip(a,f,0.07,t,v));}},{id:'d6',name:'雙頻交替',tag:'識別高',fn:(v)=>{const a=ga();[[900,0],[1300,0.18],[900,0.36],[1300,0.54]].forEach(([f,t])=>bip(a,f,0.14,t,v));}}],success:[{id:'s1',name:'上升音階',tag:'歡樂',fn:(v)=>{const a=ga();[[523,0],[659,0.15],[784,0.3],[1047,0.45]].forEach(([f,t])=>bip(a,f,0.2,t,v));}},{id:'s2',name:'叮咚完成',tag:'清脆',fn:(v)=>{const a=ga();[[880,0],[1100,0.2]].forEach(([f,t])=>{const o=a.createOscillator(),g=a.createGain();o.type='sine';o.connect(g);g.connect(a.destination);o.frequency.value=f;g.gain.setValueAtTime(v*0.28,a.currentTime+t);g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+t+0.6);o.start(a.currentTime+t);o.stop(a.currentTime+t+0.7);});}},{id:'s3',name:'三音完成',tag:'溫和',fn:(v)=>{const a=ga();[[659,0],[784,0.18],[987,0.36]].forEach(([f,t])=>bip(a,f,0.22,t,v));}},{id:'s4',name:'五音樂句',tag:'豐富',fn:(v)=>{const a=ga();[[523,0],[587,0.14],[659,0.28],[784,0.42],[1047,0.56]].forEach(([f,t])=>bip(a,f,0.16,t,v));}},{id:'s5',name:'電玩過關',tag:'活潑',fn:(v)=>{const a=ga();[[784,0],[784,0.1],[784,0.2],[659,0.3],[784,0.4]].forEach(([f,t])=>bip(a,f,0.09,t,v));}},{id:'s6',name:'柔和鐘聲',tag:'優雅',fn:(v)=>{const a=ga();[[523,0],[659,0.2],[783,0.4]].forEach(([f,t])=>{const o=a.createOscillator(),g=a.createGain();o.type='sine';o.connect(g);g.connect(a.destination);o.frequency.value=f;g.gain.setValueAtTime(v*0.22,a.currentTime+t);g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+t+0.8);o.start(a.currentTime+t);o.stop(a.currentTime+t+0.9);});}},]};
+
+/* ══ 音效設定（新版） ══ */
+const SOUND_SECTIONS_CFG=[
+  {k:'warn',   icon:'⚠️', label:'準備就緒提醒音（3分鐘警示）', desc:'倒數達3分鐘時觸發，循環直到確認'},
+  {k:'danger', icon:'🚨', label:'緊急確認提示音（1分鐘警示）', desc:'倒數達1分鐘時觸發，循環直到確認'},
+  {k:'success',icon:'✅', label:'到站完成音',                  desc:'列車抵達時觸發，重複播放直到按下確認'},
+];
+const SOUND_DEFAULTS={
+  warn:   {type:'preset',id:'w1',name:'雙嗶提示'},
+  danger: {type:'preset',id:'d1',name:'急促雙音'},
+  success:{type:'preset',id:'s1',name:'上升音階'},
+};
+const SC={
+  warn:   {current:{type:'preset',id:'w1',name:'雙嗶提示'},   vol:70},
+  danger: {current:{type:'preset',id:'d1',name:'急促雙音'},   vol:80},
+  success:{current:{type:'preset',id:'s1',name:'上升音階'},   vol:70},
+};
+let soundReplaceKey=null,soundReplaceSel=null,soundReplaceFile=null;
+let soundPlayingId=null,soundPlayInterval=null;
+
+function buildSound(){
+  const cards=document.getElementById('sound-cards');if(!cards)return;
+  cards.innerHTML=SOUND_SECTIONS_CFG.map(s=>`
+    <div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:16px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="width:36px;height:36px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--color-background-secondary);flex-shrink:0">${s.icon}</div>
+        <div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">${s.label}</div><div style="font-size:11px;color:var(--color-text-secondary);margin-top:2px">${s.desc}</div></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 13px;margin-bottom:10px" id="scur-${s.k}">
+        <div style="display:flex;align-items:center;gap:8px">
+          <i class="ti ti-music" style="font-size:14px;color:var(--color-text-tertiary)"></i>
+          <span style="font-size:12px;font-weight:500;color:var(--color-text-primary)" id="scur-name-${s.k}">${SC[s.k].current.name}</span>
+          <span style="font-size:10px;padding:1px 6px;border-radius:var(--border-radius-md);background:${SC[s.k].current.type==='custom'?'#EEEDFE':'#EAF3DE'};color:${SC[s.k].current.type==='custom'?'#3C3489':'#3B6D11'};font-weight:500" id="scur-tag-${s.k}">${SC[s.k].current.type==='custom'?'自訂':'內建'}</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-sm" onclick="playCurrentSoundCS('${s.k}')"><i class="ti ti-volume"></i> 試聽</button>
+          <button class="btn btn-sm" onclick="openSoundReplace('${s.k}')"><i class="ti ti-refresh"></i> 替換</button>
+          <button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A" onclick="resetSoundCS('${s.k}')"><i class="ti ti-trash"></i> 恢復預設</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:12px;color:var(--color-text-secondary);white-space:nowrap;display:flex;align-items:center;gap:4px"><i class="ti ti-volume" style="font-size:14px"></i> 音量</span>
+        <input type="range" min="0" max="100" value="${SC[s.k].vol}" oninput="SC['${s.k}'].vol=parseInt(this.value);this.nextElementSibling.textContent=this.value+'%'" style="flex:1;accent-color:#378ADD">
+        <span style="font-size:12px;font-weight:500;min-width:32px;text-align:right">${SC[s.k].vol}%</span>
+      </div>
+    </div>`).join('');
+}
+
+function refreshSoundCurrent(k){
+  const n=document.getElementById('scur-name-'+k);const t=document.getElementById('scur-tag-'+k);
+  if(n)n.textContent=SC[k].current.name;
+  if(t){t.textContent=SC[k].current.type==='custom'?'自訂':'內建';t.style.background=SC[k].current.type==='custom'?'#EEEDFE':'#EAF3DE';t.style.color=SC[k].current.type==='custom'?'#3C3489':'#3B6D11';}
+}
+function resetSoundCS(k){SC[k].current={...SOUND_DEFAULTS[k]};refreshSoundCurrent(k);showToast('已恢復預設音效');}
+function saveAllSound(){showToast('音效設定已儲存');}
+function playCurrentSoundCS(k){playCS(k);}
+
+function openSoundReplace(k){
+  soundReplaceKey=k;soundReplaceSel=SC[k].current.type==='preset'?SC[k].current.id:null;soundReplaceFile=null;
+  const title=document.getElementById('sound-replace-title');
+  if(title)title.textContent='替換音效　'+SOUND_SECTIONS_CFG.find(s=>s.k===k).label;
+  const fi=document.getElementById('sound-upload-info');if(fi){fi.style.display='none';fi.innerHTML='';}
+  renderSoundReplaceList();
+  const mb=document.getElementById('modal-sound-replace');if(mb)mb.classList.add('open');
+}
+function closeSoundReplace(){
+  const mb=document.getElementById('modal-sound-replace');if(mb)mb.classList.remove('open');
+  soundReplaceKey=null;soundReplaceSel=null;soundReplaceFile=null;
+}
+function renderSoundReplaceList(){
+  const list=document.getElementById('sound-replace-preset-list');if(!list||!soundReplaceKey)return;
+  list.innerHTML=PRESETS[soundReplaceKey].map(p=>{
+    const isSel=soundReplaceSel===p.id&&!soundReplaceFile;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:var(--border-radius-md);border:0.5px solid ${isSel?'#378ADD':'var(--color-border-tertiary)'};cursor:pointer;font-size:12px;background:${isSel?'var(--color-background-info)':'var(--color-background-primary)'};color:${isSel?'var(--color-text-info)':'var(--color-text-primary)'}" onclick="selSoundPreset('${p.id}')">
+      <button style="width:26px;height:26px;border-radius:50%;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:11px" id="spp-${p.id}" onclick="event.stopPropagation();playSoundPreview('${soundReplaceKey}','${p.id}',this)"><i class="ti ti-player-play" style="font-size:10px"></i></button>
+      <span style="flex:1">${p.name}</span>
+      <span style="font-size:10px;color:var(--color-text-tertiary)">${p.tag}</span>
+      ${isSel?'<i class="ti ti-check" style="color:#378ADD;font-size:12px"></i>':''}
+    </div>`;
+  }).join('');
+}
+function selSoundPreset(id){soundReplaceSel=id;soundReplaceFile=null;const fi=document.getElementById('sound-upload-info');if(fi)fi.style.display='none';renderSoundReplaceList();}
+function playSoundPreview(k,id,btn){
+  if(soundPlayInterval){clearInterval(soundPlayInterval);soundPlayInterval=null;}
+  if(soundPlayingId){const old=document.getElementById('spp-'+soundPlayingId);if(old){old.innerHTML='<i class="ti ti-player-play" style="font-size:10px"></i>';old.style.background='';}}
+  if(soundPlayingId===id){soundPlayingId=null;return;}
+  soundPlayingId=id;
+  if(btn){btn.innerHTML='<i class="ti ti-player-pause" style="font-size:10px"></i>';btn.style.background='#378ADD';btn.style.color='#fff';}
+  const p=PRESETS[k].find(x=>x.id===id);if(!p)return;
+  const v=SC[k].vol/100;p.fn(v);
+  soundPlayInterval=setInterval(()=>p.fn(v),700);
+  setTimeout(()=>{clearInterval(soundPlayInterval);soundPlayInterval=null;soundPlayingId=null;if(btn){btn.innerHTML='<i class="ti ti-player-play" style="font-size:10px"></i>';btn.style.background='';btn.style.color='';}},3500);
+}
+function handleSoundUpload(input){
+  const file=input.files[0];if(!file)return;
+  soundReplaceFile=file;soundReplaceSel=null;
+  const fi=document.getElementById('sound-upload-info');
+  if(fi){fi.style.display='flex';fi.innerHTML='<i class="ti ti-check" style="color:#1D9E75"></i>'+file.name+' ('+Math.round(file.size/1024)+' KB)　已選取';}
+  renderSoundReplaceList();
+}
+function confirmSoundReplace(){
+  if(!soundReplaceKey)return;
+  if(soundReplaceFile){
+    SC[soundReplaceKey].current={type:'custom',name:soundReplaceFile.name,id:null};
+    showToast('已替換為自訂音效：'+soundReplaceFile.name);
+  } else if(soundReplaceSel){
+    const p=PRESETS[soundReplaceKey].find(x=>x.id===soundReplaceSel);
+    if(p)SC[soundReplaceKey].current={type:'preset',id:p.id,name:p.name};
+    showToast('已替換為：'+SC[soundReplaceKey].current.name);
+  } else {showToast('請選擇音效或上傳檔案');return;}
+  refreshSoundCurrent(soundReplaceKey);
+  closeSoundReplace();
+}
+
+/* ── 事件系統 ── */
+function fmt(dt){return dt.getHours().toString().padStart(2,'0')+':'+dt.getMinutes().toString().padStart(2,'0');}
+function fmtCd(ms){if(ms<=0)return'00:00';const s=Math.floor(ms/1000),m=Math.floor(s/60);return m.toString().padStart(2,'0')+':'+(s%60).toString().padStart(2,'0');}
+function cdCls(ms){if(ms<=60000)return'danger';if(ms<=180000)return'warn';return'normal';}
+const TC={'視障旅客':'tag-blue','年長旅客':'tag-coral','輪椅旅客（攜帶輪椅）':'tag-green','輪椅旅客（協助駐留）':'tag-green','其他':'tag-gray'};
+let events=[
+  {id:1,from:'G9',to:'G17',dir:'down',trainGroup:'07/08',gate:'03 車門',gender:'女性',type:'輪椅旅客（協助駐留）',note:'人數：1人\n上衣顏色：白色\n其他特徵：約70歲',departTime:new Date(Date.now()+5*60000+30000),createdBy:'110219',station:'北段辦'},
+  {id:2,from:'G9',to:'G0',dir:'up',trainGroup:'11/12',gate:'05 車門',gender:'男性',type:'視障旅客',note:'上衣顏色：深藍色\n其他特徵：攜帶白手杖',departTime:new Date(Date.now()+2*60000+10000),createdBy:'110219',station:'北段辦'},
+];
+let nextId=3;
+const wF=new Set(),dF=new Set(),doF=new Set();
+let bepInt=null,alertOpen=false;
+function startLoop(k){stopLoop();playCS(k);bepInt=setInterval(()=>playCS(k),k==='danger'?450:700);}
+function stopLoop(){if(bepInt){clearInterval(bepInt);bepInt=null;}}
+function playCS(k){
+  const cur=SC[k].current;
+  if(cur.type==='preset'){
+    const p=PRESETS[k].find(x=>x.id===cur.id);
+    if(p)p.fn(SC[k].vol/100);
+  }
+}
+function buildNote(){const p=[];[['人數','f-n1'],['陪同者','f-n2'],['上衣顏色','f-n3'],['褲／裙顏色','f-n4'],['其他特徵','f-n5']].forEach(([l,id])=>{const v=(document.getElementById(id)||{}).value||'';if(v.trim())p.push(l+'：'+v.trim());});return p.join('\n');}
+function parseNote(note){const lm={'人數':'f-n1','陪同者':'f-n2','上衣顏色':'f-n3','褲／裙顏色':'f-n4','其他特徵':'f-n5'};Object.values(lm).forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});if(!note)return;note.split('\n').forEach(line=>{const m=line.match(/^(.+?)：(.*)$/);if(m&&lm[m[1]]){const el=document.getElementById(lm[m[1]]);if(el)el.value=m[2];}});}
+function renderEvents(){
+  const el=document.getElementById('event-list');if(!el)return;
+  if(!events.length){el.innerHTML='<div class="empty-state"><i class="ti ti-mood-happy"></i>目前無進行中的引導事件</div>';return;}
+  el.innerHTML=events.map(ev=>{const ms=ev.departTime-new Date(),cls=cdCls(ms),cc=cls==='danger'?'danger':cls==='warn'?'warn':'normal';return'<div class="event-card '+cc+'" id="card-'+ev.id+'"><div class="event-info"><div class="event-route">'+ev.from+' '+SN[ev.from]+' → '+ev.to+' '+SN[ev.to]+' <span style="color:var(--color-text-secondary);font-weight:400;font-size:11px">'+(ev.dir==='down'?'↓ 下行':'↑ 上行')+'</span></div><div class="event-tags"><span class="tag '+(TC[ev.type]||'tag-gray')+'">'+ev.type+'</span><span class="tag tag-gray">車組 '+(ev.trainGroup||'—')+'</span><span class="tag tag-gray">'+ev.gate+'</span><span class="tag tag-gray">'+ev.gender+'</span></div>'+(ev.note?'<div class="event-note"><i class="ti ti-note" style="font-size:11px"></i> '+ev.note+'</div>':'')+'<div class="event-actions"><button class="btn btn-sm" onclick="openEditModal('+ev.id+')"><i class="ti ti-edit"></i> 編輯</button><button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A" onclick="delEvent('+ev.id+')"><i class="ti ti-trash"></i> 刪除</button></div><div class="event-meta">建立者：'+ev.createdBy+' · '+ev.station+'</div></div><div class="countdown-box"><div class="countdown-num '+cls+'" id="cd-'+ev.id+'">'+fmtCd(ms)+'</div><div class="countdown-label">發車倒數</div><div class="countdown-depart">預定 '+fmt(ev.departTime)+' 發車</div></div></div>';}).join('');
+}
+function delEvent(id){if(confirm('確定刪除？')){events=events.filter(e=>e.id!==id);renderEvents();}}
+function aInfo(ev){return'<div class="alert-info"><div class="alert-info-row"><span class="alert-info-label">路線</span><span class="alert-info-val">'+ev.from+' '+SN[ev.from]+' → '+ev.to+' '+SN[ev.to]+'</span></div><div class="alert-info-row"><span class="alert-info-label">方向</span><span class="alert-info-val">'+(ev.dir==='down'?'↓ 下行（往高鐵）':'↑ 上行（往北屯）')+'</span></div><div class="alert-info-row"><span class="alert-info-label">旅客類別</span><span class="alert-info-val">'+ev.type+'</span></div><div class="alert-info-row"><span class="alert-info-label">車組</span><span class="alert-info-val">'+(ev.trainGroup||'—')+'</span></div><div class="alert-info-row"><span class="alert-info-label">車門</span><span class="alert-info-val">'+ev.gate+'</span></div><div class="alert-info-row"><span class="alert-info-label">性別</span><span class="alert-info-val">'+ev.gender+'</span></div></div>';}
+function showAlert(type,icon,title,info,extra,btns){alertOpen=true;document.getElementById('alert-box').className='alert-box '+type;document.getElementById('a-icon').textContent=icon;document.getElementById('a-title').textContent=title;document.getElementById('a-info').innerHTML=info;document.getElementById('a-extra').innerHTML=extra||'';document.getElementById('a-btns').innerHTML=btns;document.getElementById('alert-bg').classList.add('open');}
+function closeAlert(){alertOpen=false;stopLoop();document.getElementById('alert-bg').classList.remove('open');}
+function finishOk(id){events=events.filter(e=>e.id!==id);renderEvents();closeAlert();}
+function finishFail(id){closeAlert();const ev=events.find(e=>e.id===id);if(!ev)return;setTimeout(()=>{showAlert('warn','📝','請填寫未接到原因',aInfo(ev),'<textarea id="nm" style="width:100%;min-height:52px;font-size:12px;padding:7px;border:0.5px solid var(--color-border-secondary);border-radius:6px;background:var(--color-background-primary);color:var(--color-text-primary);font-family:var(--font-sans);margin-bottom:10px" placeholder="請說明原因..."></textarea>','<button class="btn btn-primary" onclick="submitFail('+id+')"><i class="ti ti-check"></i> 送出</button>');},200);}
+function submitFail(id){events=events.filter(e=>e.id!==id);renderEvents();closeAlert();}
+function showPage(el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+el.dataset.page).classList.add('active');el.classList.add('active');}
+function getCurrentTimetable(dir){
+  /* 根據當前時刻表模式選擇正確資料 */
+  const entry=calOverrides&&calYear?(()=>{
+    const today=new Date();
+    const k=calKey(today.getFullYear(),today.getMonth()+1,today.getDate());
+    return calOverrides[k]||(H26[k]?{type:H26[k]}:null);
+  })():null;
+  const type=entry?entry.type:(()=>{const dow=new Date().getDay();return dow===6?'first':dow===0?'rest':'weekday';})();
+  if(type==='first') return dir==='down'?TH1D:TH1U;
+  if(type==='rest') return dir==='down'?THRD:THRU;
+  return dir==='down'?TD:TU;
+}
+function getNextN(st,dir,n=4){
+  let tbl;
+  try{tbl=getCurrentTimetable(dir);}catch(e){tbl=dir==='down'?TD:TU;}
+  const times=tbl[st]||[],now=new Date(),ds=now.toISOString().split('T')[0],res=[];
+  for(let t of times){if(res.length>=n)break;const dt=new Date(ds+'T'+t.padStart(5,'0')+':00');if(t.startsWith('00'))dt.setDate(dt.getDate()+1);if(dt>now)res.push(dt);}
+  return res;
+}
+function updateTrains(){const st=document.getElementById('f-from').value||'G9',dir=document.getElementById('f-dir').value||'down';document.getElementById('train-options').innerHTML=getNextN(st,dir,4).map((dt,i)=>'<label class="train-option '+(i===0?'selected':'')+'"><input type="radio" name="tsel" value="'+dt.toISOString()+'" '+(i===0?'checked':'')+' onchange="this.closest(\'.next-trains\').querySelectorAll(\'.train-option\').forEach(x=>x.classList.remove(\'selected\'));this.closest(\'.train-option\').classList.add(\'selected\')">'+fmt(dt)+' 發車'+(i===0?' <span style="font-size:10px;color:#0c447c">（下一班）</span>':'')+'</label>').join('');}
+function clearNF(){['f-n1','f-n2','f-n3','f-n4','f-n5'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';})}
+function openModal(){if(suspended){showToast('系統暫停使用中，無法新增事件');return;}document.getElementById('f-edit-id').value='';document.getElementById('mf-title').textContent='新增引導事件';document.getElementById('mf-submit').textContent='建立事件';document.getElementById('train-sel-wrap').style.display='';document.getElementById('f-from').value='G9';document.getElementById('f-to').value='G13';clearNF();autoDir();document.getElementById('modal-form').classList.add('open');}
+function openEditModal(id){const ev=events.find(e=>e.id===id);if(!ev)return;document.getElementById('f-edit-id').value=id;document.getElementById('mf-title').textContent='編輯引導事件';document.getElementById('mf-submit').textContent='儲存變更';document.getElementById('train-sel-wrap').style.display='none';document.getElementById('f-from').value=ev.from;document.getElementById('f-to').value=ev.to;document.getElementById('f-dir').value=ev.dir;document.getElementById('dir-display').textContent=ev.dir==='down'?'↓ 下行（往高鐵臺中站）':'↑ 上行（往北屯總站）';document.getElementById('f-train').value=ev.trainGroup||'';document.getElementById('f-type').value=ev.type;document.getElementById('f-gate').value=ev.gate;document.getElementById('f-gender').value=ev.gender;parseNote(ev.note||'');document.getElementById('modal-form').classList.add('open');}
+function closeFormModal(){document.getElementById('modal-form').classList.remove('open');}
+function submitEvent(){const eid=document.getElementById('f-edit-id').value,note=buildNote();if(eid){const ev=events.find(e=>e.id==eid);if(!ev)return;ev.from=document.getElementById('f-from').value;ev.to=document.getElementById('f-to').value;ev.dir=document.getElementById('f-dir').value;ev.trainGroup=document.getElementById('f-train').value;ev.type=document.getElementById('f-type').value;ev.gate=document.getElementById('f-gate').value;ev.gender=document.getElementById('f-gender').value;ev.note=note;closeFormModal();renderEvents();return;}const sel=document.querySelector('input[name="tsel"]:checked');if(!sel){alert('請選擇班次');return;}if(!CU)return;events.push({id:nextId++,from:document.getElementById('f-from').value||'G9',to:document.getElementById('f-to').value||'G13',dir:document.getElementById('f-dir').value,trainGroup:document.getElementById('f-train').value||'',gate:document.getElementById('f-gate').value,gender:document.getElementById('f-gender').value,type:document.getElementById('f-type').value,note,departTime:new Date(sel.value),createdBy:CU.username,station:CU.station});closeFormModal();renderEvents();}
+function tick(){
+  const now=new Date();
+  const cd=document.getElementById('clock-display');if(cd)cd.textContent=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
+  events.forEach(ev=>{const ms=ev.departTime-now,el=document.getElementById('cd-'+ev.id),card=document.getElementById('card-'+ev.id);if(!el)return;const cls=cdCls(ms);el.textContent=fmtCd(ms);el.className='countdown-num '+cls;if(card)card.className='event-card '+(cls==='danger'?'danger':cls==='warn'?'warn':'normal');if(ms<=180000&&ms>60000&&!wF.has(ev.id)&&!alertOpen){wF.add(ev.id);startLoop('warn');showAlert('warn','⚠️','準備就緒提醒　距發車約 3 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，已派員至指定地點</button>');}if(ms<=60000&&ms>0&&!dF.has(ev.id)&&!alertOpen){dF.add(ev.id);startLoop('danger');showAlert('danger','🚨','緊急確認　距發車不到 1 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，人員已在月台等候</button>');}if(ms<=0&&!doF.has(ev.id)&&!alertOpen){doF.add(ev.id);startLoop('success');showAlert('success','✅','列車已到站',aInfo(ev),'','<button class="btn btn-primary" onclick="finishOk('+ev.id+')"><i class="ti ti-check"></i> 已接到旅客</button><button class="btn" style="color:#E24B4A;border-color:#E24B4A;margin-left:8px" onclick="finishFail('+ev.id+')"><i class="ti ti-x"></i> 未接到旅客</button>');}});
+}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+/* ══ 時刻表版次管理 JS ══ */
+let TT_VERSIONS=[
+  {id:'v1',name:'W05_06_09R_UP',type:'常態－平日',file:'平日尖峰6分鐘離峰9分鐘深夜20分鐘_W05_06_09R_UP.pdf',uploadDate:'2026/01/10',uploader:'系統管理員',start:'2026/01/10',end:'',status:'啟用中',note:''},
+  {id:'v2',name:'H05_0730_08_10R',type:'常態－假期首日',file:'假期首日尖峰7.5分_H05_0730_08_10R.pdf',uploadDate:'2026/01/10',uploader:'系統管理員',start:'2026/01/10',end:'',status:'啟用中',note:''},
+  {id:'v3',name:'H05_0930_10R',type:'常態－假期其餘日',file:'假期其餘日離峰9.5分_H05_0930_10R.pdf',uploadDate:'2026/01/10',uploader:'系統管理員',start:'2026/01/10',end:'',status:'啟用中',note:''},
+  {id:'v4',name:'MARATHON_20260315',type:'特殊',file:'馬拉松特殊時刻表_20260315.pdf',uploadDate:'2026/02/26',uploader:'楊貿勛',start:'2026/03/15',end:'2026/03/15',status:'已停用',note:'2026臺中城市半程馬拉松'},
+];
+let nextVid=5,pendingDelVid=null,newTTFile=null,editTTFile=null;
+const TT_TYPE_BADGE={'常態－平日':'badge-green','常態－假期首日':'badge-amber','常態－假期其餘日':'badge-blue','特殊':'badge-gray'};
+function todayStrTT(){const n=new Date();return n.getFullYear()+'/'+(n.getMonth()+1).toString().padStart(2,'0')+'/'+n.getDate().toString().padStart(2,'0');}
+function renderTTTable(){
+  const tbody=document.getElementById('tt-tbody');if(!tbody)return;
+  tbody.innerHTML=TT_VERSIONS.map(v=>{
+    const fileCell='<span class="tt-file-link" data-file="'+v.file+'" style="cursor:pointer;color:#378ADD;text-decoration:underline" title="點擊預覽">'+v.file+'</span>';
+    return '<tr>'
+      +'<td style="font-weight:500">'+v.name+'</td>'
+      +'<td><span class="badge '+(TT_TYPE_BADGE[v.type]||'badge-gray')+'">'+v.type+'</span></td>'
+      +'<td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+fileCell+'</td>'
+      +'<td>'+v.uploadDate+'</td>'
+      +'<td>'+v.uploader+'</td>'
+      +'<td style="font-size:11px">'+v.start+(v.end?' ~ '+v.end:' 起')+'</td>'
+      +'<td><span class="badge '+(v.status==='啟用中'?'badge-green':'badge-gray')+'">'+v.status+'</span></td>'
+      +'<td style="white-space:nowrap">'
+        +'<button class="btn btn-sm" data-action="edit" data-id="'+v.id+'"><i class="ti ti-edit"></i></button> '
+        +'<button class="btn btn-sm" data-action="del" data-id="'+v.id+'" style="color:#E24B4A;border-color:#E24B4A"><i class="ti ti-trash"></i></button>'
+      +'</td>'
+    +'</tr>';
+  }).join('');
+}
+function initTTTableEvents(){
+  const tbody=document.getElementById('tt-tbody');if(!tbody)return;
+  tbody.addEventListener('click',function(e){
+    const btn=e.target.closest('[data-action]');
+    if(btn){
+      const action=btn.dataset.action,id=btn.dataset.id;
+      if(action==='edit')openEditTT(id);
+      else if(action==='del')askDeleteTT(id);
+      return;
+    }
+    const fileLink=e.target.closest('.tt-file-link');
+    if(fileLink) openFilePreview(fileLink.dataset.file);
+  });
+}
+function openFilePreview(filename){
+  const mb=document.getElementById('modal-file-preview');
+  const title=document.getElementById('file-preview-title');
+  const body=document.getElementById('file-preview-body');
+  if(!mb)return;
+  if(title) title.textContent=filename;
+  if(body) body.innerHTML='<div style="text-align:center;padding:32px;color:var(--color-text-secondary)">'
+    +'<i class="ti ti-file" style="font-size:48px;display:block;margin-bottom:12px;color:var(--color-text-tertiary)"></i>'
+    +'<div style="font-size:13px;font-weight:500;margin-bottom:6px">'+filename+'</div>'
+    +'<div style="font-size:11px;color:var(--color-text-tertiary)">實際部署後將顯示檔案內容。<br>原型示範模式無法載入本地檔案。</div>'
+    +'</div>';
+  mb.classList.add('open');
+}
+function openNewTT(){
+  newTTFile=null;
+  ['new-tt-name','new-tt-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const ts=document.getElementById('new-tt-type');if(ts)ts.value='常態－平日';
+  const ss=document.getElementById('new-tt-status');if(ss)ss.value='啟用中';
+  const sd=document.getElementById('new-tt-start');if(sd)sd.value=new Date().toISOString().split('T')[0];
+  const ed=document.getElementById('new-tt-end');if(ed)ed.value='';
+  const fi=document.getElementById('new-tt-file-info');if(fi)fi.style.display='none';
+  const mb=document.getElementById('modal-new-tt');if(mb)mb.classList.add('open');
+}
+function handleNewTTFile(input){
+  const file=input.files[0];if(!file)return;newTTFile=file;
+  const el=document.getElementById('new-tt-file-info');if(el){el.style.display='flex';el.innerHTML='<i class="ti ti-check" style="color:#1D9E75"></i>'+file.name+' ('+Math.round(file.size/1024)+' KB)';}
+}
+function submitNewTT(){
+  const nameEl=document.getElementById('new-tt-name');const name=(nameEl?nameEl.value:'').trim();
+  if(!name){showToast('請填寫版本名稱');return;}
+  if(!newTTFile){showToast('請選擇上傳檔案');return;}
+  const CUn=CU?CU.name:'系統管理員';
+  const ts=document.getElementById('new-tt-type');const ss=document.getElementById('new-tt-status');
+  const sd=document.getElementById('new-tt-start');const ed=document.getElementById('new-tt-end');
+  const nt=document.getElementById('new-tt-note');
+  TT_VERSIONS.push({id:'v'+nextVid++,name,type:ts?ts.value:'常態－平日',file:newTTFile.name,uploadDate:todayStrTT(),uploader:CUn,start:(sd?sd.value:'').replace(/-/g,'/'),end:(ed?ed.value:'').replace(/-/g,'/'),status:ss?ss.value:'啟用中',note:nt?nt.value:''});
+  const mb=document.getElementById('modal-new-tt');if(mb)mb.classList.remove('open');
+  renderTTTable();showToast('版本已上傳');
+}
+function openEditTT(id){
+  const v=TT_VERSIONS.find(x=>x.id===id);if(!v)return;
+  editTTFile=null;
+  const ei=document.getElementById('edit-tt-id');if(ei)ei.value=id;
+  const en=document.getElementById('edit-tt-name');if(en)en.value=v.name;
+  const et=document.getElementById('edit-tt-type');if(et)et.value=v.type;
+  const es=document.getElementById('edit-tt-status');if(es)es.value=v.status;
+  const esd=document.getElementById('edit-tt-start');if(esd)esd.value=v.start.replace(/\//g,'-');
+  const eed=document.getElementById('edit-tt-end');if(eed)eed.value=v.end?v.end.replace(/\//g,'-'):'';
+  const eno=document.getElementById('edit-tt-note');if(eno)eno.value=v.note||'';
+  const ecf=document.getElementById('edit-tt-current-file');if(ecf)ecf.textContent=v.file;
+  const efi=document.getElementById('edit-tt-file-info');if(efi)efi.style.display='none';
+  const mb=document.getElementById('modal-edit-tt');if(mb)mb.classList.add('open');
+}
+function handleEditTTFile(input){
+  const file=input.files[0];if(!file)return;editTTFile=file;
+  const el=document.getElementById('edit-tt-file-info');if(el){el.style.display='flex';el.innerHTML='<i class="ti ti-check" style="color:#1D9E75"></i>'+file.name+' ('+Math.round(file.size/1024)+' KB)';}
+  const ecf=document.getElementById('edit-tt-current-file');if(ecf)ecf.textContent=file.name+' （新檔，儲存後覆蓋）';
+}
+function submitEditTT(){
+  const eid=document.getElementById('edit-tt-id');const id=eid?eid.value:'';
+  const v=TT_VERSIONS.find(x=>x.id===id);if(!v)return;
+  const en=document.getElementById('edit-tt-name');if(en&&en.value.trim())v.name=en.value.trim();
+  const et=document.getElementById('edit-tt-type');if(et)v.type=et.value;
+  const es=document.getElementById('edit-tt-status');if(es)v.status=es.value;
+  const esd=document.getElementById('edit-tt-start');if(esd&&esd.value)v.start=esd.value.replace(/-/g,'/');
+  const eed=document.getElementById('edit-tt-end');if(eed)v.end=eed.value.replace(/-/g,'/');
+  const eno=document.getElementById('edit-tt-note');if(eno)v.note=eno.value;
+  if(editTTFile){v.file=editTTFile.name;v.uploadDate=todayStrTT();v.uploader=CU?CU.name:'系統管理員';}
+  const mb=document.getElementById('modal-edit-tt');if(mb)mb.classList.remove('open');
+  renderTTTable();showToast('版本已更新');
+}
+function askDeleteTT(id){
+  const v=TT_VERSIONS.find(x=>x.id===id);if(!v)return;
+  pendingDelVid=id;
+  const dt=document.getElementById('del-tt-title');if(dt)dt.textContent='確認刪除「'+v.name+'」？';
+  const dd=document.getElementById('del-tt-desc');if(dd)dd.textContent='類型：'+v.type+'　此操作無法復原。';
+  const dw=document.getElementById('del-tt-warn');if(dw)dw.style.display=v.status==='啟用中'?'flex':'none';
+  const mb=document.getElementById('modal-del-tt');if(mb)mb.classList.add('open');
+}
+function confirmDeleteTT(){
+  if(!pendingDelVid)return;
+  TT_VERSIONS=TT_VERSIONS.filter(x=>x.id!==pendingDelVid);
+  pendingDelVid=null;
+  const mb=document.getElementById('modal-del-tt');if(mb)mb.classList.remove('open');
+  renderTTTable();showToast('版本已刪除');
+}
+
+/* ══ 行事曆管理 JS ══ */
+const H26={'2026-1-1':'first','2026-2-14':'first','2026-2-15':'rest','2026-2-16':'rest','2026-2-17':'rest','2026-2-18':'rest','2026-2-19':'rest','2026-2-20':'rest','2026-2-21':'rest','2026-2-22':'rest','2026-2-27':'first','2026-2-28':'rest','2026-3-1':'rest','2026-4-3':'first','2026-4-4':'rest','2026-4-5':'rest','2026-4-6':'rest','2026-5-1':'first','2026-5-2':'rest','2026-5-3':'rest','2026-6-19':'first','2026-6-20':'rest','2026-6-21':'rest','2026-9-25':'first','2026-9-26':'rest','2026-9-27':'rest','2026-9-28':'rest','2026-10-9':'first','2026-10-10':'rest','2026-10-11':'rest','2026-10-24':'first','2026-10-25':'rest','2026-10-26':'rest','2026-12-25':'first','2026-12-26':'rest','2026-12-27':'rest'};
+const CAL_CSS={weekday:'background:#E6F1FB;border:0.5px solid #B5D4F4;color:#0C447C',first:'background:#FAEEDA;border:0.5px solid #FAC775;color:#633806',rest:'background:#EAF3DE;border:0.5px solid #C0DD97;color:#3B6D11',special:'background:#EEEDFE;border:0.5px solid #AFA9EC;color:#3C3489',warning:'background:#FCEBEB;border:0.5px solid #F09595;color:#791F1F'};
+const CAL_LABELS={weekday:'平日版',first:'假期首日版',rest:'假期其餘日版',warning:'需上傳'};
+const CAL_BADGE={weekday:'background:#E6F1FB;color:#0C447C;border:0.5px solid #B5D4F4',first:'background:#FAEEDA;color:#633806;border:0.5px solid #FAC775',rest:'background:#EAF3DE;color:#3B6D11;border:0.5px solid #C0DD97',special:'background:#EEEDFE;color:#3C3489;border:0.5px solid #AFA9EC',warning:'background:#FCEBEB;color:#791F1F;border:0.5px solid #F09595'};
+let calOvr={},calYear=2026,calMonth=6,calEditKey=null,calEditSel=null,calEditSvId=null;
+const LOADED_YRS=[2026];
+function calKey(y,m,d){return y+'-'+m+'-'+d;}
+function getCalEntry(y,m,d){const k=calKey(y,m,d);if(calOvr[k])return calOvr[k];if(H26[k])return{type:H26[k]};const dow=new Date(y,m-1,d).getDay();if(dow===6)return{type:'first'};if(dow===0)return{type:'rest'};return{type:'weekday'};}
+function isCalDeleted(entry){if(entry.type!=='special')return false;const sv=TT_VERSIONS.find(x=>x.id===entry.svId&&x.type==='特殊');return !sv;}
+function renderCalMain(){
+  const grid=document.getElementById('cal-grid-main');if(!grid)return;
+  while(grid.children.length>7)grid.removeChild(grid.lastChild);
+  const lbl=document.getElementById('cal-month-label');if(lbl)lbl.textContent=calYear+'年 '+calMonth+'月';
+  const yw=document.getElementById('cal-year-warn');
+  if(yw){if(!LOADED_YRS.includes(calYear)){yw.style.display='flex';const t=document.getElementById('cal-year-warn-text');if(t)t.textContent=calYear+'年行事曆尚未載入，目前以週六＝假期首日、週日＝假期其餘日顯示，請匯入正確行事曆。';}else yw.style.display='none';}
+  const fd=new Date(calYear,calMonth-1,1).getDay();const days=new Date(calYear,calMonth,0).getDate();const td=new Date();
+  for(let i=0;i<fd;i++){const el=document.createElement('div');el.style.cssText='visibility:hidden';el.textContent='.';grid.appendChild(el);}
+  for(let d=1;d<=days;d++){
+    const entry=getCalEntry(calYear,calMonth,d);const isDel=isCalDeleted(entry);
+    const cssType=isDel?'warning':entry.type;
+    const label=isDel?'版本已刪除':entry.type==='special'?'特殊版':(CAL_LABELS[entry.type]||entry.type);
+    const el=document.createElement('div');
+    el.style.cssText='font-size:12px;text-align:center;padding:6px 3px 5px;border-radius:6px;cursor:pointer;min-height:48px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;'+CAL_CSS[cssType];
+    if(calYear===td.getFullYear()&&calMonth===td.getMonth()+1&&d===td.getDate())el.style.boxShadow='0 0 0 2px #378ADD';
+    el.innerHTML='<span style="font-size:13px;font-weight:500">'+d+'</span><span style="font-size:9px;font-weight:500;line-height:1.2;text-align:center">'+label+'</span>';
+    const y=calYear,m=calMonth;el.onclick=()=>openCalEdit(y,m,d);grid.appendChild(el);
+  }
+}
+function calPrevMonth(){calMonth--;if(calMonth<1){calMonth=12;calYear--;}renderCalMain();}
+function calNextMonth(){calMonth++;if(calMonth>12){calMonth=1;calYear++;}renderCalMain();}
+const CAL_DOW=['日','一','二','三','四','五','六'];
+function openCalEdit(y,m,d){
+  calEditKey=calKey(y,m,d);const entry=getCalEntry(y,m,d);const isDel=isCalDeleted(entry);
+  calEditSel=isDel?'warning':entry.type;calEditSvId=(!isDel&&entry.svId)?entry.svId:null;
+  const et=document.getElementById('cal-edit-title');if(et)et.textContent=y+'年 '+m+'月 '+d+'日（'+CAL_DOW[new Date(y,m-1,d).getDay()]+'）';
+  const bType=isDel?'warning':entry.type;
+  let bLabel;
+  if(isDel)bLabel='版本已刪除（'+(entry.svName||'')+')';
+  else if(entry.type==='special'){const sv=TT_VERSIONS.find(x=>x.id===entry.svId);bLabel=sv?sv.name:'特殊版';}
+  else bLabel=CAL_LABELS[entry.type]||entry.type;
+  const badge=document.getElementById('cal-edit-badge');
+  if(badge)badge.innerHTML='<span style="font-size:11px;color:var(--color-text-tertiary);margin-right:5px">目前版次：</span><span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:500;'+CAL_BADGE[bType]+'">'+bLabel+'</span>';
+  const dw=document.getElementById('cal-edit-del-warn');if(dw)dw.style.display=isDel?'flex':'none';
+  document.querySelectorAll('.cal-type-option').forEach(el=>el.classList.toggle('selected',el.dataset.type===calEditSel));
+  updateCalStep2();
+  const mb=document.getElementById('modal-cal-edit');if(mb)mb.classList.add('open');
+}
+function closeCalEdit(){const mb=document.getElementById('modal-cal-edit');if(mb)mb.classList.remove('open');calEditKey=null;calEditSel=null;calEditSvId=null;}
+function selCalType(el){document.querySelectorAll('.cal-type-option').forEach(x=>x.classList.remove('selected'));el.classList.add('selected');calEditSel=el.dataset.type;if(calEditSel!=='special')calEditSvId=null;updateCalStep2();}
+function updateCalStep2(){
+  const s2s=document.getElementById('cal-step2-special');const s2w=document.getElementById('cal-step2-warning');
+  if(s2s)s2s.style.display=calEditSel==='special'?'block':'none';
+  if(s2w)s2w.style.display=calEditSel==='warning'?'block':'none';
+  if(calEditSel==='special')renderCalSpecialList();
+}
+function renderCalSpecialList(){
+  const list=document.getElementById('cal-special-list');if(!list)return;
+  const active=TT_VERSIONS.filter(v=>v.type==='特殊'&&v.status!=='已刪除');
+  if(active.length===0){list.innerHTML='<div style="font-size:12px;color:var(--color-text-tertiary);padding:10px;text-align:center">目前無已上傳的特殊時刻表版本<br>請先至時刻表版次頁面上傳</div>';return;}
+  list.innerHTML='';
+  active.forEach(sv=>{
+    const el=document.createElement('div');
+    el.style.cssText='padding:9px 11px;border-radius:6px;border:0.5px solid '+(calEditSvId===sv.id?'#534AB7':'var(--color-border-tertiary)')+';cursor:pointer;margin-bottom:6px;font-size:12px;background:'+(calEditSvId===sv.id?'#EEEDFE':'var(--color-background-primary)')+';color:'+(calEditSvId===sv.id?'#3C3489':'var(--color-text-primary)');
+    el.innerHTML='<div style="font-weight:500"><i class="ti ti-file" style="font-size:12px;margin-right:4px"></i>'+sv.name+'</div><div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px">'+sv.file+'　上傳：'+sv.uploadDate+'</div>';
+    el.onclick=()=>selCalSv(sv.id);
+    list.appendChild(el);
+  });
+}
+function selCalSv(svId){calEditSvId=svId;renderCalSpecialList();}
+function saveCalEdit(){
+  if(!calEditKey||!calEditSel)return;
+  if(calEditSel==='special'&&!calEditSvId){showToast('請選擇特殊時刻表版本');return;}
+  if(calEditSel==='special'){const sv=TT_VERSIONS.find(x=>x.id===calEditSvId);calOvr[calEditKey]={type:'special',svId:calEditSvId,svName:sv?sv.name:''};}
+  else calOvr[calEditKey]={type:calEditSel};
+  closeCalEdit();renderCalMain();showToast('時刻表版次已更新');
+}
+function openCalImport(){const mb=document.getElementById('modal-cal-import');if(mb)mb.classList.add('open');}
+function handleCalImportFile(input){
+  const file=input.files[0];if(!file)return;
+  const fn=document.getElementById('cal-import-file-name');if(fn){fn.style.display='block';fn.innerHTML='<i class="ti ti-check" style="color:#1D9E75"></i> '+file.name+' ('+Math.round(file.size/1024)+' KB)';}
+  const btn=document.getElementById('cal-import-btn');if(btn){btn.disabled=false;btn.style.opacity='';btn.style.cursor='';}
+}
+function doCalImport(){const mb=document.getElementById('modal-cal-import');if(mb)mb.classList.remove('open');showToast('行事曆已匯入，假日資料已更新');}
+</script>
+
+<!-- 時刻表版次：新增 Modal -->
+<div class="modal-bg" id="modal-new-tt">
+<div class="modal" style="width:480px">
+  <div class="modal-header"><div class="modal-title">上傳新版本</div><button class="btn btn-sm" onclick="document.getElementById('modal-new-tt').classList.remove('open')"><i class="ti ti-x"></i></button></div>
+  <div class="modal-body">
+    <div class="form-group"><div class="form-label">版本名稱 <span>*</span></div><input type="text" id="new-tt-name" placeholder="例：W05_06_09R_UP"></div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">類型 <span>*</span></div><select id="new-tt-type"><option>常態－平日</option><option>常態－假期首日</option><option>常態－假期其餘日</option><option>特殊</option></select></div>
+      <div class="form-group"><div class="form-label">狀態</div><select id="new-tt-status"><option>啟用中</option><option>已停用</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">生效開始日期</div><input type="date" id="new-tt-start"></div>
+      <div class="form-group"><div class="form-label">生效結束日期（留空為長期）</div><input type="date" id="new-tt-end"></div>
+    </div>
+    <div class="form-group"><div class="form-label">上傳檔案 <span>*</span></div>
+      <div style="border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:14px;text-align:center;cursor:pointer;position:relative">
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleNewTTFile(this)">
+        <i class="ti ti-file-upload" style="font-size:20px;color:var(--color-text-tertiary);display:block;margin-bottom:4px"></i>
+        <div style="font-size:12px;color:var(--color-text-secondary)">點擊或拖曳上傳 PDF / JPG / PNG</div>
+        <div id="new-tt-file-info" style="display:none;font-size:11px;color:#1D9E75;margin-top:6px;align-items:center;gap:4px;justify-content:center"></div>
+      </div>
+    </div>
+    <div class="form-group"><div class="form-label">備註</div><input type="text" id="new-tt-note" placeholder="選填"></div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="document.getElementById('modal-new-tt').classList.remove('open')">取消</button><button class="btn btn-primary" onclick="submitNewTT()"><i class="ti ti-check"></i> 上傳</button></div>
+</div>
+</div>
+
+<!-- 時刻表版次：編輯 Modal -->
+<div class="modal-bg" id="modal-edit-tt">
+<div class="modal" style="width:480px">
+  <div class="modal-header"><div class="modal-title">編輯版本</div><button class="btn btn-sm" onclick="document.getElementById('modal-edit-tt').classList.remove('open')"><i class="ti ti-x"></i></button></div>
+  <div class="modal-body">
+    <input type="hidden" id="edit-tt-id">
+    <div class="form-group"><div class="form-label">版本名稱</div><input type="text" id="edit-tt-name"></div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">類型</div><select id="edit-tt-type"><option>常態－平日</option><option>常態－假期首日</option><option>常態－假期其餘日</option><option>特殊</option></select></div>
+      <div class="form-group"><div class="form-label">狀態</div><select id="edit-tt-status"><option>啟用中</option><option>已停用</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><div class="form-label">生效開始日期</div><input type="date" id="edit-tt-start"></div>
+      <div class="form-group"><div class="form-label">生效結束日期（留空為長期）</div><input type="date" id="edit-tt-end"></div>
+    </div>
+    <div class="form-group"><div class="form-label">目前檔案</div>
+      <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:8px 10px;font-size:11px;color:var(--color-text-secondary);display:flex;align-items:center;gap:6px">
+        <i class="ti ti-file" style="font-size:14px;flex-shrink:0"></i><span id="edit-tt-current-file"></span>
+      </div>
+    </div>
+    <div class="form-group"><div class="form-label">重新上傳檔案（選填，不上傳則保留原檔）</div>
+      <div style="border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:12px;text-align:center;cursor:pointer;position:relative">
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleEditTTFile(this)">
+        <div style="font-size:12px;color:var(--color-text-secondary)">點擊選擇新檔案</div>
+        <div id="edit-tt-file-info" style="display:none;font-size:11px;color:#1D9E75;margin-top:6px;align-items:center;gap:4px;justify-content:center"></div>
+      </div>
+    </div>
+    <div class="form-group"><div class="form-label">備註</div><input type="text" id="edit-tt-note"></div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="document.getElementById('modal-edit-tt').classList.remove('open')">取消</button><button class="btn btn-primary" onclick="submitEditTT()"><i class="ti ti-check"></i> 儲存變更</button></div>
+</div>
+</div>
+
+<!-- 時刻表版次：刪除確認 -->
+<div class="modal-bg" id="modal-del-tt">
+<div class="modal" style="width:380px;padding:24px">
+  <div style="font-size:14px;font-weight:500;margin-bottom:8px" id="del-tt-title">確認刪除？</div>
+  <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;line-height:1.7" id="del-tt-desc"></div>
+  <div id="del-tt-warn" style="display:none;background:#FAEEDA;border:0.5px solid #FAC775;border-radius:var(--border-radius-md);padding:10px 12px;font-size:11px;color:#633806;margin-bottom:14px;align-items:flex-start;gap:6px;line-height:1.6">
+    <i class="ti ti-alert-triangle" style="font-size:13px;flex-shrink:0;margin-top:1px"></i>
+    <span>此版本目前為<strong>啟用中</strong>，刪除後該日期類型將無時刻表可用，請確認已有替代版本。</span>
+  </div>
+  <div style="display:flex;justify-content:flex-end;gap:8px">
+    <button class="btn" onclick="document.getElementById('modal-del-tt').classList.remove('open')">取消</button>
+    <button class="btn btn-warning" onclick="confirmDeleteTT()"><i class="ti ti-trash"></i> 確認刪除</button>
+  </div>
+</div>
+</div>
+
+<!-- 行事曆：日期編輯 Modal -->
+<div class="modal-bg" id="modal-cal-edit">
+<div class="modal" style="width:390px;max-height:90vh;overflow:auto">
+  <div class="modal-header"><div class="modal-title" id="cal-edit-title">調整時刻表版次</div><button class="btn btn-sm" onclick="closeCalEdit()"><i class="ti ti-x"></i></button></div>
+  <div class="modal-body">
+    <div id="cal-edit-badge" style="margin-bottom:4px"></div>
+    <div id="cal-edit-del-warn" style="display:none;background:#FCEBEB;border:0.5px solid #F09595;border-radius:var(--border-radius-md);padding:10px 12px;font-size:11px;color:#791F1F;margin-bottom:10px;align-items:flex-start;gap:6px;line-height:1.6">
+      <i class="ti ti-alert-triangle" style="font-size:13px;flex-shrink:0;margin-top:1px"></i>
+      <span>此日期原指定的特殊時刻表版本已被刪除，請重新選擇版次。</span>
+    </div>
+    <div style="font-size:11px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">選擇版次類型</div>
+    <div class="cal-type-option" data-type="weekday" onclick="selCalType(this)"><div style="width:12px;height:12px;border-radius:3px;flex-shrink:0;background:#E6F1FB;border:0.5px solid #B5D4F4"></div>平日版</div>
+    <div class="cal-type-option" data-type="first" onclick="selCalType(this)"><div style="width:12px;height:12px;border-radius:3px;flex-shrink:0;background:#FAEEDA;border:0.5px solid #FAC775"></div>假期首日版</div>
+    <div class="cal-type-option" data-type="rest" onclick="selCalType(this)"><div style="width:12px;height:12px;border-radius:3px;flex-shrink:0;background:#EAF3DE;border:0.5px solid #C0DD97"></div>假期其餘日版</div>
+    <div class="cal-type-option" data-type="special" onclick="selCalType(this)"><div style="width:12px;height:12px;border-radius:3px;flex-shrink:0;background:#EEEDFE;border:0.5px solid #AFA9EC"></div>特殊版（選擇已上傳版本）</div>
+    <div class="cal-type-option" data-type="warning" onclick="selCalType(this)"><div style="width:12px;height:12px;border-radius:3px;flex-shrink:0;background:#FCEBEB;border:0.5px solid #F09595"></div>特殊日（標記提醒，尚未上傳）</div>
+    <div id="cal-step2-special" style="display:none;margin-top:14px;padding-top:14px;border-top:0.5px solid var(--color-border-tertiary)">
+      <div style="font-size:11px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">選擇特殊時刻表版本</div>
+      <div id="cal-special-list"></div>
+      <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:6px;line-height:1.6">找不到版本？請先至「時刻表版次」頁面上傳特殊版本後，再回此處指定。</div>
+    </div>
+    <div id="cal-step2-warning" style="display:none;margin-top:14px;padding-top:14px;border-top:0.5px solid var(--color-border-tertiary)">
+      <div style="background:#FAEEDA;border:0.5px solid #FAC775;border-radius:var(--border-radius-md);padding:10px 12px;font-size:11px;color:#633806;display:flex;gap:6px;line-height:1.7">
+        <i class="ti ti-info-circle" style="font-size:13px;flex-shrink:0;margin-top:1px"></i>
+        <span>此日期將標記為紅色提醒。請先至「時刻表版次」頁面上傳特殊版本，上傳完成後回到此日期，選擇「特殊版（選擇已上傳版本）」完成指定。</span>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="closeCalEdit()">取消</button><button class="btn btn-primary" onclick="saveCalEdit()"><i class="ti ti-check"></i> 確認</button></div>
+</div>
+</div>
+
+<!-- 行事曆：匯入 Modal -->
+<div class="modal-bg" id="modal-cal-import">
+<div class="modal" style="width:420px">
+  <div class="modal-header"><div class="modal-title">匯入政府行事曆</div><button class="btn btn-sm" onclick="document.getElementById('modal-cal-import').classList.remove('open')"><i class="ti ti-x"></i></button></div>
+  <div class="modal-body">
+    <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;line-height:1.7">上傳人事行政總處公告的行事曆圖片（JPG/PNG）或試算表（XLSX/ODS），系統將辨識放假日並更新月曆。</div>
+    <div style="border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:16px;text-align:center;position:relative;margin-bottom:8px">
+      <input type="file" accept=".jpg,.jpeg,.png,.pdf,.xlsx,.ods" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleCalImportFile(this)">
+      <i class="ti ti-file-upload" style="font-size:22px;color:var(--color-text-tertiary);display:block;margin-bottom:5px"></i>
+      <div style="font-size:12px;color:var(--color-text-secondary)">點擊或拖曳上傳</div>
+      <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:3px">JPG / PNG / PDF / XLSX / ODS</div>
+      <div id="cal-import-file-name" style="font-size:11px;color:#1D9E75;margin-top:6px;display:none"></div>
+    </div>
+    <div style="background:#FAEEDA;border:0.5px solid #FAC775;border-radius:var(--border-radius-md);padding:10px 12px;font-size:11px;color:#633806;line-height:1.6">
+      <i class="ti ti-info-circle" style="font-size:12px"></i>
+      目前已內建 2026年正確假日資料。上傳新年度行事曆後將覆蓋現有資料，請確認年度正確後再上傳。
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="document.getElementById('modal-cal-import').classList.remove('open')">取消</button><button class="btn btn-primary" id="cal-import-btn" onclick="doCalImport()" disabled style="opacity:.4;cursor:not-allowed"><i class="ti ti-check"></i> 確認匯入</button></div>
+</div>
+</div>
+
+
+<!-- 音效替換 Modal -->
+<div class="modal-bg" id="modal-sound-replace">
+<div class="modal" style="width:420px">
+  <div class="modal-header">
+    <div class="modal-title" id="sound-replace-title">替換音效</div>
+    <button class="btn btn-sm" onclick="closeSoundReplace()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="modal-body">
+    <div style="font-size:11px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">從內建音效選擇</div>
+    <div id="sound-replace-preset-list" style="display:grid;gap:6px"></div>
+    <div style="height:0.5px;background:var(--color-border-tertiary);margin:10px 0"></div>
+    <div style="font-size:11px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">或上傳自訂音效</div>
+    <div style="border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:13px;text-align:center;position:relative">
+      <input type="file" accept=".mp3,.wav,.ogg" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleSoundUpload(this)">
+      <i class="ti ti-file-upload" style="font-size:20px;color:var(--color-text-tertiary);display:block;margin-bottom:4px"></i>
+      <div style="font-size:12px;color:var(--color-text-secondary)">點擊或拖曳上傳</div>
+      <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px">MP3 / WAV / OGG，2MB 以下</div>
+      <div id="sound-upload-info" style="font-size:11px;color:#1D9E75;margin-top:6px;display:none;align-items:center;gap:4px;justify-content:center"></div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeSoundReplace()">取消</button>
+    <button class="btn btn-primary" onclick="confirmSoundReplace()"><i class="ti ti-check"></i> 確認替換</button>
+  </div>
+</div>
+</div>
+
+</body>
+</html>
