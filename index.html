@@ -1329,5 +1329,24 @@ function closeMobileMenu(){
 </div>
 </div>
 
+
+<!-- 檔案預覽 Modal -->
+<div class="modal-bg" id="modal-file-preview">
+<div class="modal" style="width:560px;max-height:80vh">
+  <div class="modal-header">
+    <div class="modal-title" id="file-preview-title">檔案預覽</div>
+    <button class="btn btn-sm" onclick="document.getElementById('modal-file-preview').classList.remove('open')"><i class="ti ti-x"></i></button>
+  </div>
+  <div id="file-preview-body" style="padding:24px;min-height:200px;text-align:center;color:var(--color-text-secondary)">
+    <i class="ti ti-file" style="font-size:48px;display:block;margin-bottom:12px;color:var(--color-text-tertiary)"></i>
+    <div style="font-size:13px;font-weight:500;margin-bottom:6px" id="file-preview-name"></div>
+    <div style="font-size:11px;color:var(--color-text-tertiary)">正式部署後可預覽檔案內容</div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn" onclick="document.getElementById('modal-file-preview').classList.remove('open')">關閉</button>
+  </div>
+</div>
+</div>
+
 </body>
 </html>
