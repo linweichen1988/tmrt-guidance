@@ -613,7 +613,7 @@ function loginSuccess(prevLogin,prevIp){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
   renderAccounts();renderHistory();renderLog(LOGS);renderEvents();renderTTBanner();renderSuspendBtn();buildSound();renderTTTable();initTTTableEvents();renderCalMain();
-  eventFilter=CU.role==='S'?'all':'local';
+  eventFilter=CU.role==='S'?'all':'arrive';
   eventFilterStation='all';
   buildEventFilter();
   /* 更新行事曆頁面今日版次顯示 */
@@ -981,7 +981,7 @@ function clearNF(){['f-n1','f-n2','f-n3','f-n4','f-n5'].forEach(id=>{const el=do
 function openModal(){if(suspended){showToast('系統暫停使用中，無法新增事件');return;}document.getElementById('f-edit-id').value='';document.getElementById('mf-title').textContent='新增引導事件';document.getElementById('mf-submit').textContent='建立事件';document.getElementById('train-sel-wrap').style.display='';document.getElementById('f-from').value='G9';document.getElementById('f-to').value='G13';clearNF();autoDir();document.getElementById('modal-form').classList.add('open');}
 function openEditModal(id){const ev=events.find(e=>e.id===id);if(!ev)return;document.getElementById('f-edit-id').value=id;document.getElementById('mf-title').textContent='編輯引導事件';document.getElementById('mf-submit').textContent='儲存變更';document.getElementById('train-sel-wrap').style.display='none';document.getElementById('f-from').value=ev.from;document.getElementById('f-to').value=ev.to;document.getElementById('f-dir').value=ev.dir;document.getElementById('dir-display').textContent=ev.dir==='down'?'↓ 下行（往高鐵臺中站）':'↑ 上行（往北屯總站）';document.getElementById('f-train').value=ev.trainGroup||'';document.getElementById('f-type').value=ev.type;document.getElementById('f-gate').value=ev.gate;document.getElementById('f-gender').value=ev.gender;parseNote(ev.note||'');document.getElementById('modal-form').classList.add('open');}
 function closeFormModal(){document.getElementById('modal-form').classList.remove('open');}
-function submitEvent(){const eid=document.getElementById('f-edit-id').value,note=buildNote();if(eid){const ev=events.find(e=>e.id==eid);if(!ev)return;ev.from=document.getElementById('f-from').value;ev.to=document.getElementById('f-to').value;ev.dir=document.getElementById('f-dir').value;ev.trainGroup=document.getElementById('f-train').value;ev.type=document.getElementById('f-type').value;ev.gate=document.getElementById('f-gate').value;ev.gender=document.getElementById('f-gender').value;ev.note=note;closeFormModal();renderEvents();return;}const sel=document.querySelector('input[name="tsel"]:checked');if(!sel){alert('請選擇班次');return;}if(!CU)return;events.push({id:nextId++,from:document.getElementById('f-from').value||'G9',to:document.getElementById('f-to').value||'G13',dir:document.getElementById('f-dir').value,trainGroup:document.getElementById('f-train').value||'',gate:document.getElementById('f-gate').value,gender:document.getElementById('f-gender').value,type:document.getElementById('f-type').value,note,departTime:new Date(sel.value),createdBy:CU.username,station:CU.station});closeFormModal();renderEvents();}
+function submitEvent(){const eid=document.getElementById('f-edit-id').value,note=buildNote();if(eid){const ev=events.find(e=>e.id==eid);if(!ev)return;ev.from=document.getElementById('f-from').value;ev.to=document.getElementById('f-to').value;ev.dir=document.getElementById('f-dir').value;ev.trainGroup=document.getElementById('f-train').value;ev.type=document.getElementById('f-type').value;ev.gate=document.getElementById('f-gate').value;ev.gender=document.getElementById('f-gender').value;ev.note=note;closeFormModal();renderEvents();return;}const sel=document.querySelector('input[name="tsel"]:checked');if(!sel){alert('請選擇班次');return;}if(!CU)return;events.push({id:nextId++,from:document.getElementById('f-from').value||'G9',to:document.getElementById('f-to').value||'G13',dir:document.getElementById('f-dir').value,trainGroup:document.getElementById('f-train').value||'',gate:document.getElementById('f-gate').value,gender:document.getElementById('f-gender').value,type:document.getElementById('f-type').value,note,departTime:new Date(sel.value),createdBy:CU.username,station:document.getElementById('f-from').value||'G9',stationTo:document.getElementById('f-to').value||'G13'});closeFormModal();renderEvents();}
 function tick(){
   const now=new Date();
   const cd=document.getElementById('clock-display');if(cd)cd.textContent=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
@@ -1231,14 +1231,14 @@ function buildEventFilter(){
     wrap.innerHTML='<select onchange="setSFilter(this.value)" style="font-family:var(--font-sans);font-size:12px;padding:5px 9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer">'+opts.map(v=>'<option value="'+v+'" '+(eventFilterStation===v?'selected':'')+'>'+SN[v]+'</option>').join('')+'</select>';
   } else {
     // A/B級：本站 / 全線 按鈕
-    const isLocal=eventFilter==='local';
+    /* eventFilter: arrive / depart / all */
     const wrap2=document.createElement('div');
     wrap2.style.cssText='display:flex;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden;font-size:12px';
-    ['local','all'].forEach(mode=>{
-      const isThis=(mode==='local'&&isLocal)||(mode==='all'&&!isLocal);
+    [{mode:'arrive',label:'本站（到站）'},{mode:'depart',label:'本站（離站）'},{mode:'all',label:'全線'}].forEach(({mode,label})=>{
+      const isThis=eventFilter===mode;
       const b=document.createElement('button');
-      b.textContent=mode==='local'?'本站':'全線';
-      b.style.cssText='padding:5px 10px;background:'+(isThis?'#378ADD':'var(--color-background-primary)')+';color:'+(isThis?'#fff':'var(--color-text-secondary)')+';border:none;cursor:pointer;font-family:var(--font-sans)';
+      b.textContent=label;
+      b.style.cssText='padding:5px 10px;background:'+(isThis?'#378ADD':'var(--color-background-primary)')+';color:'+(isThis?'#fff':'var(--color-text-secondary)')+';border:none;cursor:pointer;font-family:var(--font-sans);white-space:nowrap';
       b.onclick=()=>setEventFilter(mode);
       wrap2.appendChild(b);
     });
@@ -1247,6 +1247,7 @@ function buildEventFilter(){
 }
 function setSFilter(val){
   eventFilterStation=val;
+  console.log('篩選站碼:',val,'事件列表:',events.map(e=>({from:e.from,to:e.to,station:e.station})));
   renderEvents();
 }
 function setEventFilter(mode){
@@ -1258,10 +1259,15 @@ function getFilteredEvents(){
   if(!CU) return events;
   if(CU.role==='S'){
     if(eventFilterStation==='all') return events;
-    return events.filter(ev=>ev.station===eventFilterStation);
+    /* S級：比對起站或迄站包含選擇的站碼 */
+    return events.filter(ev=>ev.from===eventFilterStation||ev.to===eventFilterStation||ev.station===eventFilterStation);
   }
+  /* A/B級：依本站模式篩選 */
+  const myStation=CU.station; /* 帳號綁定的站碼（需為 G 開頭） */
   if(eventFilter==='all') return events;
-  return events.filter(ev=>ev.station===CU.station);
+  if(eventFilter==='arrive') return events.filter(ev=>ev.to===myStation);
+  if(eventFilter==='depart') return events.filter(ev=>ev.from===myStation);
+  return events;
 }
 
 </script>
