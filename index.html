@@ -56,6 +56,9 @@ body{font-family:var(--font-sans);background:var(--color-background-tertiary);ma
 .page{display:none;padding:18px}.page.active{display:block}
 .tt-banner{display:flex;align-items:center;padding:9px 14px;border-radius:var(--border-radius-md);margin-bottom:14px;font-size:12px;gap:8px}
 .tt-banner.normal{background:#EAF3DE;border:0.5px solid #C0DD97;color:#27500A}
+.tt-banner.first{background:#FAEEDA;border:0.5px solid #FAC775;color:#633806}
+.tt-banner.rest{background:#EAF3DE;border:0.5px solid #C0DD97;color:#3B6D11}
+.tt-banner.special{background:#EEEDFE;border:0.5px solid #AFA9EC;color:#3C3489}
 .tt-banner.suspended{background:#FCEBEB;border:0.5px solid #F09595;color:#791F1F}
 .suspend-overlay{background:#FCEBEB;border:1.5px solid #E24B4A;border-radius:var(--border-radius-lg);padding:24px;text-align:center;margin-bottom:14px}
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
@@ -313,10 +316,7 @@ input[type=range]{flex:1;accent-color:#378ADD}
   <div class="topbar">
     <div><div class="topbar-title">即時引導事件</div><div class="topbar-meta" id="clock-display">—</div></div>
     <div style="display:flex;gap:8px;align-items:center">
-      <div style="display:flex;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden;font-size:12px">
-        <button id="filter-local" onclick="setEventFilter('local')" style="padding:5px 10px;background:#378ADD;color:#fff;border:none;cursor:pointer;font-family:var(--font-sans)">本站</button>
-        <button id="filter-all" onclick="setEventFilter('all')" style="padding:5px 10px;background:var(--color-background-primary);color:var(--color-text-secondary);border:none;cursor:pointer;font-family:var(--font-sans)">全線</button>
-      </div>
+      <div id="event-filter-wrap"></div>
       <button class="btn btn-primary" id="add-btn" onclick="openModal()"><i class="ti ti-plus"></i>新增事件</button>
     </div>
   </div>
@@ -613,6 +613,9 @@ function loginSuccess(prevLogin,prevIp){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
   renderAccounts();renderHistory();renderLog(LOGS);renderEvents();renderTTBanner();renderSuspendBtn();buildSound();renderTTTable();initTTTableEvents();renderCalMain();
+  eventFilter=CU.role==='S'?'all':'local';
+  eventFilterStation='all';
+  buildEventFilter();
   /* 更新行事曆頁面今日版次顯示 */
   const ttLabel=document.getElementById('tt-current-label');
   if(ttLabel)ttLabel.textContent='目前判斷結果：'+getTodayTTName();
@@ -717,33 +720,48 @@ function autoDir(){
 }
 
 function getTodayTTName(){
-  /* 根據行事曆資料判斷今天的時刻表版次名稱 */
+  const t=getTodayTTType();
   const today=new Date();
   const k=calKey(today.getFullYear(),today.getMonth()+1,today.getDate());
-  let entry=null;
-  try{
-    entry=calOvr&&calOvr[k]?calOvr[k]:(H26[k]?{type:H26[k]}:null);
-  }catch(e){}
-  const dow=today.getDay();
-  const type=entry?entry.type:(dow===6?'first':dow===0?'rest':'weekday');
-  if(type==='first')   return '假期首日尖峰7.5分離峰8分　常態－假期首日　2026/01/10 上傳';
-  if(type==='rest')    return '假期其餘日離峰9.5分　常態－假期其餘日　2026/01/10 上傳';
-  if(type==='special'){
-    if(entry&&entry.svName) return entry.svName+'　特殊版';
-    return '特殊版';
-  }
+  const entry=calOvr&&calOvr[k]?calOvr[k]:(H26[k]?{type:H26[k]}:null);
+  if(t==='first')  return '假期首日尖峰7.5分離峰8分　常態－假期首日　2026/01/10 上傳';
+  if(t==='rest')   return '假期其餘日離峰9.5分　常態－假期其餘日　2026/01/10 上傳';
+  if(t==='special'&&entry&&entry.svName) return entry.svName+'　特殊版';
+  if(t==='special') return '特殊版';
   return '平日尖峰6分鐘離峰9分鐘深夜20分鐘　常態－平日　2026/01/10 上傳';
 }
 
+function getTodayTTType(){
+  const today=new Date();
+  const k=calKey(today.getFullYear(),today.getMonth()+1,today.getDate());
+  const entry=calOvr&&calOvr[k]?calOvr[k]:(H26[k]?{type:H26[k]}:null);
+  const dow=today.getDay();
+  if(entry) return entry.type;
+  return dow===6?'first':dow===0?'rest':'weekday';
+}
 function renderTTBanner(){
   const w=document.getElementById('tt-banner-wrap');if(!w)return;
   if(suspended){w.innerHTML='<div class="tt-banner suspended"><i class="ti ti-alert-triangle" style="font-size:15px"></i><strong>系統暫停使用中</strong></div>';return;}
   const isM=ttMode!=='auto';
-  const tag=isM
-    ?'<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:#FAEEDA;color:#633806;font-weight:500">手動指定</span>'
-    :'<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:#EAF3DE;color:#27500A;font-weight:500">自動</span>';
+  /* 決定顏色 class */
+  let bannerClass='normal';
+  if(isM){
+    if(ttMode==='H1')bannerClass='first';
+    else if(ttMode==='H2')bannerClass='rest';
+    else bannerClass='normal';
+  } else {
+    const t=getTodayTTType();
+    if(t==='first')bannerClass='first';
+    else if(t==='rest')bannerClass='rest';
+    else if(t==='special')bannerClass='special';
+    else bannerClass='normal';
+  }
+  const tagBg={normal:'#EAF3DE',first:'#FAEEDA',rest:'#EAF3DE',special:'#EEEDFE'}[bannerClass]||'#EAF3DE';
+  const tagColor={normal:'#27500A',first:'#633806',rest:'#3B6D11',special:'#3C3489'}[bannerClass]||'#27500A';
+  const modeLabel=isM?'手動指定':'自動';
+  const tag='<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:'+tagBg+';color:'+tagColor+';font-weight:500">'+modeLabel+'</span>';
   const label=isM?(TT_LABELS[ttMode]||TT_LABELS.auto):getTodayTTName();
-  w.innerHTML='<div class="tt-banner normal"><i class="ti ti-calendar-check" style="font-size:14px"></i>'+tag+'<span>目前使用時刻表：'+label+'</span></div>';
+  w.innerHTML='<div class="tt-banner '+bannerClass+'"><i class="ti ti-calendar-check" style="font-size:14px"></i>'+tag+'<span>目前使用時刻表：'+label+'</span></div>';
 }
 function renderSuspendOverlay(){
   const w=document.getElementById('suspend-overlay-wrap');const btn=document.getElementById('add-btn');
@@ -943,11 +961,9 @@ function submitFail(id){events=events.filter(e=>e.id!==id);renderEvents();closeA
 function showPage(el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+el.dataset.page).classList.add('active');el.classList.add('active');}
 function getCurrentTimetable(dir){
   /* 根據當前時刻表模式選擇正確資料 */
-  const entry=calOverrides&&calYear?(()=>{
-    const today=new Date();
-    const k=calKey(today.getFullYear(),today.getMonth()+1,today.getDate());
-    return calOverrides[k]||(H26[k]?{type:H26[k]}:null);
-  })():null;
+  const today2=new Date();
+  const k2=calKey(today2.getFullYear(),today2.getMonth()+1,today2.getDate());
+  const entry=calOvr&&calOvr[k2]?calOvr[k2]:(H26[k2]?{type:H26[k2]}:null);
   const type=entry?entry.type:(()=>{const dow=new Date().getDay();return dow===6?'first':dow===0?'rest':'weekday';})();
   if(type==='first') return dir==='down'?TH1D:TH1U;
   if(type==='rest') return dir==='down'?THRD:THRU;
@@ -1202,22 +1218,49 @@ function closeMobileMenu(){
   document.body.style.overflow='';
 }
 
-/* ══ 事件篩選：本站 / 全線 ══ */
-let eventFilter='local';
+/* ══ 事件篩選 ══ */
+let eventFilter='all'; // S級預設全線；A/B級預設local
+let eventFilterStation='all'; // S級選擇的站
+
+function buildEventFilter(){
+  const wrap=document.getElementById('event-filter-wrap');if(!wrap||!CU)return;
+  if(CU.role==='S'){
+    // S級：下拉選單
+    const opts=['all','G0','G3','G4','G5','G6','G7','G8','G8a','G9','G10','G10a','G11','G12','G13','G14','G15','G16','G17'];
+    const SN={'all':'全線','G0':'G0 北屯總站','G3':'G3 舊社','G4':'G4 松竹','G5':'G5 四維國小','G6':'G6 文心崇德','G7':'G7 文心中清','G8':'G8 文華高中','G8a':'G8a 文心櫻花','G9':'G9 市政府','G10':'G10 水安宮','G10a':'G10a 文心森林公園','G11':'G11 南屯','G12':'G12 豐樂公園','G13':'G13 大慶','G14':'G14 九張犁','G15':'G15 九德','G16':'G16 烏日','G17':'G17 高鐵臺中站'};
+    wrap.innerHTML='<select onchange="setSFilter(this.value)" style="font-family:var(--font-sans);font-size:12px;padding:5px 9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer">'+opts.map(v=>'<option value="'+v+'" '+(eventFilterStation===v?'selected':'')+'>'+SN[v]+'</option>').join('')+'</select>';
+  } else {
+    // A/B級：本站 / 全線 按鈕
+    const isLocal=eventFilter==='local';
+    const wrap2=document.createElement('div');
+    wrap2.style.cssText='display:flex;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden;font-size:12px';
+    ['local','all'].forEach(mode=>{
+      const isThis=(mode==='local'&&isLocal)||(mode==='all'&&!isLocal);
+      const b=document.createElement('button');
+      b.textContent=mode==='local'?'本站':'全線';
+      b.style.cssText='padding:5px 10px;background:'+(isThis?'#378ADD':'var(--color-background-primary)')+';color:'+(isThis?'#fff':'var(--color-text-secondary)')+';border:none;cursor:pointer;font-family:var(--font-sans)';
+      b.onclick=()=>setEventFilter(mode);
+      wrap2.appendChild(b);
+    });
+    wrap.innerHTML='';wrap.appendChild(wrap2);
+  }
+}
+function setSFilter(val){
+  eventFilterStation=val;
+  renderEvents();
+}
 function setEventFilter(mode){
   eventFilter=mode;
-  const lb=document.getElementById('filter-local');
-  const ab=document.getElementById('filter-all');
-  if(lb&&ab){
-    lb.style.background=mode==='local'?'#378ADD':'var(--color-background-primary)';
-    lb.style.color=mode==='local'?'#fff':'var(--color-text-secondary)';
-    ab.style.background=mode==='all'?'#378ADD':'var(--color-background-primary)';
-    ab.style.color=mode==='all'?'#fff':'var(--color-text-secondary)';
-  }
+  buildEventFilter();
   renderEvents();
 }
 function getFilteredEvents(){
-  if(eventFilter==='all'||!CU) return events;
+  if(!CU) return events;
+  if(CU.role==='S'){
+    if(eventFilterStation==='all') return events;
+    return events.filter(ev=>ev.station===eventFilterStation);
+  }
+  if(eventFilter==='all') return events;
   return events.filter(ev=>ev.station===CU.station);
 }
 
