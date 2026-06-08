@@ -1250,6 +1250,21 @@ let eventFilterDepart='G9';
 let eventFilterArrive='G9';
 
 function isMgmtUnit(station){return station==='北段辦'||station==='南段辦';}
+function makeStationSelect(currentVal,onChangeFn){
+  const SN={'G0':'G0 北屯總站','G3':'G3 舊社','G4':'G4 松竹','G5':'G5 四維國小','G6':'G6 文心崇德','G7':'G7 文心中清','G8':'G8 文華高中','G8a':'G8a 文心櫻花','G9':'G9 市政府','G10':'G10 水安宮','G10a':'G10a 文心森林公園','G11':'G11 南屯','G12':'G12 豐樂公園','G13':'G13 大慶','G14':'G14 九張犁','G15':'G15 九德','G16':'G16 烏日','G17':'G17 高鐵臺中站'};
+  const opts=['G0','G3','G4','G5','G6','G7','G8','G8a','G9','G10','G10a','G11','G12','G13','G14','G15','G16','G17'];
+  const sel=document.createElement('select');
+  sel.style.cssText='font-family:var(--font-sans);font-size:11px;padding:0 4px;border:none;background:transparent;color:var(--color-text-primary);cursor:pointer;height:28px;max-width:130px';
+  opts.forEach(v=>{
+    const o=document.createElement('option');
+    o.value=v;o.textContent=SN[v];
+    if(v===currentVal)o.selected=true;
+    sel.appendChild(o);
+  });
+  sel.onchange=function(){onChangeFn(this.value);};
+  return sel;
+}
+
 function needsDropdownFilter(){
   /* S級 或 管理單位帳號 → 需要下拉選站 */
   if(!CU) return false;
