@@ -503,7 +503,32 @@ input[type=range]{flex:1;accent-color:#378ADD}
       <div class="pwd-wrap"><input type="password" id="acc-pwd" placeholder="請輸入密碼"><button class="pwd-eye" onclick="togglePwd('acc-pwd',this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><div class="form-label">車站 <span>*</span></div><input type="text" id="acc-station" placeholder="例：G9 市政府"></div>
+      <div class="form-group"><div class="form-label">車站 <span>*</span></div><select id="acc-station" style="width:100%">
+<optgroup label="各站">
+<option value="G0">G0 北屯總站</option>
+<option value="G3">G3 舊社</option>
+<option value="G4">G4 松竹</option>
+<option value="G5">G5 四維國小</option>
+<option value="G6">G6 文心崇德</option>
+<option value="G7">G7 文心中清</option>
+<option value="G8">G8 文華高中</option>
+<option value="G8a">G8a 文心櫻花</option>
+<option value="G9">G9 市政府</option>
+<option value="G10">G10 水安宮</option>
+<option value="G10a">G10a 文心森林公園</option>
+<option value="G11">G11 南屯</option>
+<option value="G12">G12 豐樂公園</option>
+<option value="G13">G13 大慶</option>
+<option value="G14">G14 九張犁</option>
+<option value="G15">G15 九德</option>
+<option value="G16">G16 烏日</option>
+<option value="G17">G17 高鐵臺中站</option>
+</optgroup>
+<optgroup label="管理單位">
+<option value="北段辦">北段辦（管理單位）</option>
+<option value="南段辦">南段辦（管理單位）</option>
+</optgroup>
+</select></div>
       <div class="form-group"><div class="form-label">層級 <span>*</span></div>
         <select id="acc-role"><option value="S">S 級（系統管理員）</option><option value="A">A 級（站務主管）</option><option value="B" selected>B 級（一般站務員）</option></select>
       </div>
@@ -1219,30 +1244,68 @@ function closeMobileMenu(){
 }
 
 /* ══ 事件篩選 ══ */
-let eventFilter='all'; // S級預設全線；A/B級預設local
-let eventFilterStation='all'; // S級選擇的站
+let eventFilter='all';
+let eventFilterStation='all';
+let eventFilterDepart='G9';
+let eventFilterArrive='G9';
 
+function isMgmtUnit(station){return station==='北段辦'||station==='南段辦';}
+function makeStationSelect(currentVal,onchangeFn){
+  /* 產生 G0-G17 下拉選單 */
+  const SN={'G0':'G0 北屯總站','G3':'G3 舊社','G4':'G4 松竹','G5':'G5 四維國小','G6':'G6 文心崇德','G7':'G7 文心中清','G8':'G8 文華高中','G8a':'G8a 文心櫻花','G9':'G9 市政府','G10':'G10 水安宮','G10a':'G10a 文心森林公園','G11':'G11 南屯','G12':'G12 豐樂公園','G13':'G13 大慶','G14':'G14 九張犁','G15':'G15 九德','G16':'G16 烏日','G17':'G17 高鐵臺中站'};
+  const opts=['G0','G3','G4','G5','G6','G7','G8','G8a','G9','G10','G10a','G11','G12','G13','G14','G15','G16','G17'];
+  const sel=document.createElement('select');
+  sel.style.cssText='font-family:var(--font-sans);font-size:12px;padding:5px 9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer';
+  opts.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=SN[v];if(v===currentVal)o.selected=true;sel.appendChild(o);});
+  sel.onchange=function(){onchangeFn(this.value);};
+  return sel;
+}
 function buildEventFilter(){
   const wrap=document.getElementById('event-filter-wrap');if(!wrap||!CU)return;
-  if(CU.role==='S'){
-    // S級：下拉選單
-    const opts=['all','G0','G3','G4','G5','G6','G7','G8','G8a','G9','G10','G10a','G11','G12','G13','G14','G15','G16','G17'];
-    const SN={'all':'全線','G0':'G0 北屯總站','G3':'G3 舊社','G4':'G4 松竹','G5':'G5 四維國小','G6':'G6 文心崇德','G7':'G7 文心中清','G8':'G8 文華高中','G8a':'G8a 文心櫻花','G9':'G9 市政府','G10':'G10 水安宮','G10a':'G10a 文心森林公園','G11':'G11 南屯','G12':'G12 豐樂公園','G13':'G13 大慶','G14':'G14 九張犁','G15':'G15 九德','G16':'G16 烏日','G17':'G17 高鐵臺中站'};
-    wrap.innerHTML='<select onchange="setSFilter(this.value)" style="font-family:var(--font-sans);font-size:12px;padding:5px 9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer">'+opts.map(v=>'<option value="'+v+'" '+(eventFilterStation===v?'selected':'')+'>'+SN[v]+'</option>').join('')+'</select>';
+  wrap.innerHTML='';
+  const isMgmt=isMgmtUnit(CU.station);
+  /* 管理單位（北段辦/南段辦）或 S級管理單位：全線＋兩個下拉 */
+  if(isMgmt){
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+    /* 全線按鈕 */
+    const bAll=document.createElement('button');
+    bAll.textContent='全線';
+    bAll.style.cssText='padding:5px 10px;font-size:12px;border-radius:var(--border-radius-md);border:0.5px solid '+(eventFilter==='all'?'#378ADD':'var(--color-border-secondary)')+';background:'+(eventFilter==='all'?'#378ADD':'var(--color-background-primary)')+';color:'+(eventFilter==='all'?'#fff':'var(--color-text-primary)')+';cursor:pointer;font-family:var(--font-sans)';
+    bAll.onclick=()=>setEventFilter('all');
+    row.appendChild(bAll);
+    /* 本站離站 */
+    const lblD=document.createElement('span');
+    lblD.textContent='本站（離站）';
+    lblD.style.cssText='font-size:12px;color:var(--color-text-secondary)';
+    row.appendChild(lblD);
+    const selD=makeStationSelect(eventFilterDepart||'G9',function(v){eventFilterDepart=v;setEventFilter('depart');});
+    if(eventFilter==='depart')selD.style.borderColor='#378ADD';
+    selD.onfocus=function(){setEventFilter('depart');};
+    row.appendChild(selD);
+    /* 本站到站 */
+    const lblA=document.createElement('span');
+    lblA.textContent='本站（到站）';
+    lblA.style.cssText='font-size:12px;color:var(--color-text-secondary)';
+    row.appendChild(lblA);
+    const selA=makeStationSelect(eventFilterArrive||'G9',function(v){eventFilterArrive=v;setEventFilter('arrive');});
+    if(eventFilter==='arrive')selA.style.borderColor='#378ADD';
+    selA.onfocus=function(){setEventFilter('arrive');};
+    row.appendChild(selA);
+    wrap.appendChild(row);
   } else {
-    // A/B級：本站 / 全線 按鈕
-    /* eventFilter: arrive / depart / all */
-    const wrap2=document.createElement('div');
-    wrap2.style.cssText='display:flex;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden;font-size:12px';
-    [{mode:'arrive',label:'本站（到站）'},{mode:'depart',label:'本站（離站）'},{mode:'all',label:'全線'}].forEach(({mode,label})=>{
+    /* 一般車站帳號：三個按鈕，本站依帳號綁定站碼 */
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden;font-size:12px';
+    [['depart','本站（離站）'],['arrive','本站（到站）'],['all','全線']].forEach(([mode,label])=>{
       const isThis=eventFilter===mode;
       const b=document.createElement('button');
       b.textContent=label;
       b.style.cssText='padding:5px 10px;background:'+(isThis?'#378ADD':'var(--color-background-primary)')+';color:'+(isThis?'#fff':'var(--color-text-secondary)')+';border:none;cursor:pointer;font-family:var(--font-sans);white-space:nowrap';
       b.onclick=()=>setEventFilter(mode);
-      wrap2.appendChild(b);
+      row.appendChild(b);
     });
-    wrap.innerHTML='';wrap.appendChild(wrap2);
+    wrap.appendChild(row);
   }
 }
 function setSFilter(val){
@@ -1257,198 +1320,18 @@ function setEventFilter(mode){
 }
 function getFilteredEvents(){
   if(!CU) return events;
-  if(CU.role==='S'){
-    if(eventFilterStation==='all') return events;
-    /* S級：比對起站或迄站包含選擇的站碼 */
-    return events.filter(ev=>ev.from===eventFilterStation||ev.to===eventFilterStation||ev.station===eventFilterStation);
+  const mgmt=isMgmtUnit(CU.station);
+  if(mgmt){
+    if(eventFilter==='all') return events;
+    if(eventFilter==='depart') return events.filter(ev=>ev.from===eventFilterDepart);
+    if(eventFilter==='arrive') return events.filter(ev=>ev.to===eventFilterArrive);
+    return events;
   }
-  /* A/B級：依本站模式篩選 */
-  const myStation=CU.station; /* 帳號綁定的站碼（需為 G 開頭） */
+  /* 一般車站帳號 */
+  const myStation=CU.station;
   if(eventFilter==='all') return events;
-  if(eventFilter==='arrive') return events.filter(ev=>ev.to===myStation);
   if(eventFilter==='depart') return events.filter(ev=>ev.from===myStation);
+  if(eventFilter==='arrive') return events.filter(ev=>ev.to===myStation);
   return events;
 }
 
-</script>
-
-<!-- 時刻表版次：新增 Modal -->
-<div class="modal-bg" id="modal-new-tt">
-<div class="modal" style="width:480px">
-  <div class="modal-header"><div class="modal-title">上傳新版本</div><button class="btn btn-sm" onclick="document.getElementById('modal-new-tt').classList.remove('open')"><i class="ti ti-x"></i></button></div>
-  <div class="modal-body">
-    <div class="form-group"><div class="form-label">版本名稱 <span>*</span></div><input type="text" id="new-tt-name" placeholder="例：W05_06_09R_UP"></div>
-    <div class="form-row">
-      <div class="form-group"><div class="form-label">類型 <span>*</span></div><select id="new-tt-type"><option>常態－平日</option><option>常態－假期首日</option><option>常態－假期其餘日</option><option>特殊</option></select></div>
-      <div class="form-group"><div class="form-label">狀態</div><select id="new-tt-status"><option>啟用中</option><option>已停用</option></select></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><div class="form-label">生效開始日期</div><input type="date" id="new-tt-start"></div>
-      <div class="form-group"><div class="form-label">生效結束日期（留空為長期）</div><input type="date" id="new-tt-end"></div>
-    </div>
-    <div class="form-group"><div class="form-label">上傳檔案 <span>*</span></div>
-      <div style="border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:14px;text-align:center;cursor:pointer;position:relative">
-        <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleNewTTFile(this)">
-        <i class="ti ti-file-upload" style="font-size:20px;color:var(--color-text-tertiary);display:block;margin-bottom:4px"></i>
-        <div style="font-size:12px;color:var(--color-text-secondary)">點擊或拖曳上傳 PDF / JPG / PNG</div>
-        <div id="new-tt-file-info" style="display:none;font-size:11px;color:#1D9E75;margin-top:6px;align-items:center;gap:4px;justify-content:center"></div>
-      </div>
-    </div>
-    <div class="form-group"><div class="form-label">備註</div><input type="text" id="new-tt-note" placeholder="選填"></div>
-  </div>
-  <div class="modal-footer"><button class="btn" onclick="document.getElementById('modal-new-tt').classList.remove('open')">取消</button><button class="btn btn-primary" onclick="submitNewTT()"><i class="ti ti-check"></i> 上傳</button></div>
-</div>
-</div>
-
-<!-- 時刻表版次：編輯 Modal -->
-<div class="modal-bg" id="modal-edit-tt">
-<div class="modal" style="width:480px">
-  <div class="modal-header"><div class="modal-title">編輯版本</div><button class="btn btn-sm" onclick="document.getElementById('modal-edit-tt').classList.remove('open')"><i class="ti ti-x"></i></button></div>
-  <div class="modal-body">
-    <input type="hidden" id="edit-tt-id">
-    <div class="form-group"><div class="form-label">版本名稱</div><input type="text" id="edit-tt-name"></div>
-    <div class="form-row">
-      <div class="form-group"><div class="form-label">類型</div><select id="edit-tt-type"><option>常態－平日</option><option>常態－假期首日</option><option>常態－假期其餘日</option><option>特殊</option></select></div>
-      <div class="form-group"><div class="form-label">狀態</div><select id="edit-tt-status"><option>啟用中</option><option>已停用</option></select></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><div class="form-label">生效開始日期</div><input type="date" id="edit-tt-start"></div>
-      <div class="form-group"><div class="form-label">生效結束日期（留空為長期）</div><input type="date" id="edit-tt-end"></div>
-    </div>
-    <div class="form-group"><div class="form-label">目前檔案</div>
-      <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:8px 10px;font-size:11px;color:var(--color-text-secondary);display:flex;align-items:center;gap:6px">
-        <i class="ti ti-file" style="font-size:14px;flex-shrink:0"></i><span id="edit-tt-current-file"></span>
-      </div>
-    </div>
-    <div class="form-group"><div class="form-label">重新上傳檔案（選填，不上傳則保留原檔）</div>
-      <div style="border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:12px;text-align:center;cursor:pointer;position:relative">
-        <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleEditTTFile(this)">
-        <div style="font-size:12px;color:var(--color-text-secondary)">點擊選擇新檔案</div>
-        <div id="edit-tt-file-info" style="display:none;font-size:11px;color:#1D9E75;margin-top:6px;align-items:center;gap:4px;justify-content:center"></div>
-      </div>
-    </div>
-    <div class="form-group"><div class="form-label">備註</div><input type="text" id="edit-tt-note"></div>
-  </div>
-  <div class="modal-footer"><button class="btn" onclick="document.getElementById('modal-edit-tt').classList.remove('open')">取消</button><button class="btn btn-primary" onclick="submitEditTT()"><i class="ti ti-check"></i> 儲存變更</button></div>
-</div>
-</div>
-
-<!-- 時刻表版次：刪除確認 -->
-<div class="modal-bg" id="modal-del-tt">
-<div class="modal" style="width:380px;padding:24px">
-  <div style="font-size:14px;font-weight:500;margin-bottom:8px" id="del-tt-title">確認刪除？</div>
-  <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;line-height:1.7" id="del-tt-desc"></div>
-  <div id="del-tt-warn" style="display:none;background:#FAEEDA;border:0.5px solid #FAC775;border-radius:var(--border-radius-md);padding:10px 12px;font-size:11px;color:#633806;margin-bottom:14px;align-items:flex-start;gap:6px;line-height:1.6">
-    <i class="ti ti-alert-triangle" style="font-size:13px;flex-shrink:0;margin-top:1px"></i>
-    <span>此版本目前為<strong>啟用中</strong>，刪除後該日期類型將無時刻表可用，請確認已有替代版本。</span>
-  </div>
-  <div style="display:flex;justify-content:flex-end;gap:8px">
-    <button class="btn" onclick="document.getElementById('modal-del-tt').classList.remove('open')">取消</button>
-    <button class="btn btn-warning" onclick="confirmDeleteTT()"><i class="ti ti-trash"></i> 確認刪除</button>
-  </div>
-</div>
-</div>
-
-<!-- 行事曆：日期編輯 Modal -->
-<div class="modal-bg" id="modal-cal-edit">
-<div class="modal" style="width:390px;max-height:90vh;overflow:auto">
-  <div class="modal-header"><div class="modal-title" id="cal-edit-title">調整時刻表版次</div><button class="btn btn-sm" onclick="closeCalEdit()"><i class="ti ti-x"></i></button></div>
-  <div class="modal-body">
-    <div id="cal-edit-badge" style="margin-bottom:4px"></div>
-    <div id="cal-edit-del-warn" style="display:none;background:#FCEBEB;border:0.5px solid #F09595;border-radius:var(--border-radius-md);padding:10px 12px;font-size:11px;color:#791F1F;margin-bottom:10px;align-items:flex-start;gap:6px;line-height:1.6">
-      <i class="ti ti-alert-triangle" style="font-size:13px;flex-shrink:0;margin-top:1px"></i>
-      <span>此日期原指定的特殊時刻表版本已被刪除，請重新選擇版次。</span>
-    </div>
-    <div style="font-size:11px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">選擇版次類型</div>
-    <div class="cal-type-option" data-type="weekday" onclick="selCalType(this)"><div style="width:12px;height:12px;border-radius:3px;flex-shrink:0;background:#E6F1FB;border:0.5px solid #B5D4F4"></div>平日版</div>
-    <div class="cal-type-option" data-type="first" onclick="selCalType(this)"><div style="width:12px;height:12px;border-radius:3px;flex-shrink:0;background:#FAEEDA;border:0.5px solid #FAC775"></div>假期首日版</div>
-    <div class="cal-type-option" data-type="rest" onclick="selCalType(this)"><div style="width:12px;height:12px;border-radius:3px;flex-shrink:0;background:#EAF3DE;border:0.5px solid #C0DD97"></div>假期其餘日版</div>
-    <div class="cal-type-option" data-type="special" onclick="selCalType(this)"><div style="width:12px;height:12px;border-radius:3px;flex-shrink:0;background:#EEEDFE;border:0.5px solid #AFA9EC"></div>特殊版（選擇已上傳版本）</div>
-    <div class="cal-type-option" data-type="warning" onclick="selCalType(this)"><div style="width:12px;height:12px;border-radius:3px;flex-shrink:0;background:#FCEBEB;border:0.5px solid #F09595"></div>特殊日（標記提醒，尚未上傳）</div>
-    <div id="cal-step2-special" style="display:none;margin-top:14px;padding-top:14px;border-top:0.5px solid var(--color-border-tertiary)">
-      <div style="font-size:11px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">選擇特殊時刻表版本</div>
-      <div id="cal-special-list"></div>
-      <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:6px;line-height:1.6">找不到版本？請先至「時刻表版次」頁面上傳特殊版本後，再回此處指定。</div>
-    </div>
-    <div id="cal-step2-warning" style="display:none;margin-top:14px;padding-top:14px;border-top:0.5px solid var(--color-border-tertiary)">
-      <div style="background:#FAEEDA;border:0.5px solid #FAC775;border-radius:var(--border-radius-md);padding:10px 12px;font-size:11px;color:#633806;display:flex;gap:6px;line-height:1.7">
-        <i class="ti ti-info-circle" style="font-size:13px;flex-shrink:0;margin-top:1px"></i>
-        <span>此日期將標記為紅色提醒。請先至「時刻表版次」頁面上傳特殊版本，上傳完成後回到此日期，選擇「特殊版（選擇已上傳版本）」完成指定。</span>
-      </div>
-    </div>
-  </div>
-  <div class="modal-footer"><button class="btn" onclick="closeCalEdit()">取消</button><button class="btn btn-primary" onclick="saveCalEdit()"><i class="ti ti-check"></i> 確認</button></div>
-</div>
-</div>
-
-<!-- 行事曆：匯入 Modal -->
-<div class="modal-bg" id="modal-cal-import">
-<div class="modal" style="width:420px">
-  <div class="modal-header"><div class="modal-title">匯入政府行事曆</div><button class="btn btn-sm" onclick="document.getElementById('modal-cal-import').classList.remove('open')"><i class="ti ti-x"></i></button></div>
-  <div class="modal-body">
-    <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;line-height:1.7">上傳人事行政總處公告的行事曆圖片（JPG/PNG）或試算表（XLSX/ODS），系統將辨識放假日並更新月曆。</div>
-    <div style="border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:16px;text-align:center;position:relative;margin-bottom:8px">
-      <input type="file" accept=".jpg,.jpeg,.png,.pdf,.xlsx,.ods" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleCalImportFile(this)">
-      <i class="ti ti-file-upload" style="font-size:22px;color:var(--color-text-tertiary);display:block;margin-bottom:5px"></i>
-      <div style="font-size:12px;color:var(--color-text-secondary)">點擊或拖曳上傳</div>
-      <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:3px">JPG / PNG / PDF / XLSX / ODS</div>
-      <div id="cal-import-file-name" style="font-size:11px;color:#1D9E75;margin-top:6px;display:none"></div>
-    </div>
-    <div style="background:#FAEEDA;border:0.5px solid #FAC775;border-radius:var(--border-radius-md);padding:10px 12px;font-size:11px;color:#633806;line-height:1.6">
-      <i class="ti ti-info-circle" style="font-size:12px"></i>
-      目前已內建 2026年正確假日資料。上傳新年度行事曆後將覆蓋現有資料，請確認年度正確後再上傳。
-    </div>
-  </div>
-  <div class="modal-footer"><button class="btn" onclick="document.getElementById('modal-cal-import').classList.remove('open')">取消</button><button class="btn btn-primary" id="cal-import-btn" onclick="doCalImport()" disabled style="opacity:.4;cursor:not-allowed"><i class="ti ti-check"></i> 確認匯入</button></div>
-</div>
-</div>
-
-
-<!-- 音效替換 Modal -->
-<div class="modal-bg" id="modal-sound-replace">
-<div class="modal" style="width:420px">
-  <div class="modal-header">
-    <div class="modal-title" id="sound-replace-title">替換音效</div>
-    <button class="btn btn-sm" onclick="closeSoundReplace()"><i class="ti ti-x"></i></button>
-  </div>
-  <div class="modal-body">
-    <div style="font-size:11px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">從內建音效選擇</div>
-    <div id="sound-replace-preset-list" style="display:grid;gap:6px"></div>
-    <div style="height:0.5px;background:var(--color-border-tertiary);margin:10px 0"></div>
-    <div style="font-size:11px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">或上傳自訂音效</div>
-    <div style="border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:13px;text-align:center;position:relative">
-      <input type="file" accept=".mp3,.wav,.ogg" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleSoundUpload(this)">
-      <i class="ti ti-file-upload" style="font-size:20px;color:var(--color-text-tertiary);display:block;margin-bottom:4px"></i>
-      <div style="font-size:12px;color:var(--color-text-secondary)">點擊或拖曳上傳</div>
-      <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px">MP3 / WAV / OGG，2MB 以下</div>
-      <div id="sound-upload-info" style="font-size:11px;color:#1D9E75;margin-top:6px;display:none;align-items:center;gap:4px;justify-content:center"></div>
-    </div>
-  </div>
-  <div class="modal-footer">
-    <button class="btn" onclick="closeSoundReplace()">取消</button>
-    <button class="btn btn-primary" onclick="confirmSoundReplace()"><i class="ti ti-check"></i> 確認替換</button>
-  </div>
-</div>
-</div>
-
-
-<!-- 檔案預覽 Modal -->
-<div class="modal-bg" id="modal-file-preview">
-<div class="modal" style="width:560px;max-height:80vh">
-  <div class="modal-header">
-    <div class="modal-title" id="file-preview-title">檔案預覽</div>
-    <button class="btn btn-sm" onclick="document.getElementById('modal-file-preview').classList.remove('open')"><i class="ti ti-x"></i></button>
-  </div>
-  <div id="file-preview-body" style="padding:24px;min-height:200px;text-align:center;color:var(--color-text-secondary)">
-    <i class="ti ti-file" style="font-size:48px;display:block;margin-bottom:12px;color:var(--color-text-tertiary)"></i>
-    <div style="font-size:13px;font-weight:500;margin-bottom:6px" id="file-preview-name"></div>
-    <div style="font-size:11px;color:var(--color-text-tertiary)">正式部署後可預覽檔案內容</div>
-  </div>
-  <div class="modal-footer">
-    <button class="btn" onclick="document.getElementById('modal-file-preview').classList.remove('open')">關閉</button>
-  </div>
-</div>
-</div>
-
-</body>
-</html>
