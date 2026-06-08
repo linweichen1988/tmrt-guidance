@@ -1250,64 +1250,72 @@ let eventFilterDepart='G9';
 let eventFilterArrive='G9';
 
 function isMgmtUnit(station){return station==='北段辦'||station==='南段辦';}
-function makeStationSelect(currentVal,onchangeFn){
-  /* 產生 G0-G17 下拉選單 */
-  const SN={'G0':'G0 北屯總站','G3':'G3 舊社','G4':'G4 松竹','G5':'G5 四維國小','G6':'G6 文心崇德','G7':'G7 文心中清','G8':'G8 文華高中','G8a':'G8a 文心櫻花','G9':'G9 市政府','G10':'G10 水安宮','G10a':'G10a 文心森林公園','G11':'G11 南屯','G12':'G12 豐樂公園','G13':'G13 大慶','G14':'G14 九張犁','G15':'G15 九德','G16':'G16 烏日','G17':'G17 高鐵臺中站'};
-  const opts=['G0','G3','G4','G5','G6','G7','G8','G8a','G9','G10','G10a','G11','G12','G13','G14','G15','G16','G17'];
-  const sel=document.createElement('select');
-  sel.style.cssText='font-family:var(--font-sans);font-size:12px;padding:5px 9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer';
-  opts.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=SN[v];if(v===currentVal)o.selected=true;sel.appendChild(o);});
-  sel.onchange=function(){onchangeFn(this.value);};
-  return sel;
+function needsDropdownFilter(){
+  /* S級 或 管理單位帳號 → 需要下拉選站 */
+  if(!CU) return false;
+  return CU.role==='S'||isMgmtUnit(CU.station);
 }
 function buildEventFilter(){
   const wrap=document.getElementById('event-filter-wrap');if(!wrap||!CU)return;
   wrap.innerHTML='';
-  const isMgmt=isMgmtUnit(CU.station);
-  /* 管理單位（北段辦/南段辦）或 S級管理單位：全線＋兩個下拉 */
-  if(isMgmt){
-    const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;align-items:center;gap:0;flex-wrap:nowrap';
+
+  if(needsDropdownFilter()){
+    /* S級/管理單位：[全線] [本站（離站）▼] [本站（到站）▼] 同一列 */
     /* 全線按鈕 */
     const bAll=document.createElement('button');
     bAll.textContent='全線';
-    bAll.style.cssText='padding:5px 10px;font-size:12px;border-radius:var(--border-radius-md);border:0.5px solid '+(eventFilter==='all'?'#378ADD':'var(--color-border-secondary)')+';background:'+(eventFilter==='all'?'#378ADD':'var(--color-background-primary)')+';color:'+(eventFilter==='all'?'#fff':'var(--color-text-primary)')+';cursor:pointer;font-family:var(--font-sans)';
+    const allActive=eventFilter==='all';
+    bAll.style.cssText='padding:5px 11px;font-size:12px;border:0.5px solid var(--color-border-secondary);border-right:none;border-radius:var(--border-radius-md) 0 0 var(--border-radius-md);background:'+(allActive?'#378ADD':'var(--color-background-primary)')+';color:'+(allActive?'#fff':'var(--color-text-primary)')+';cursor:pointer;font-family:var(--font-sans);white-space:nowrap;height:30px';
     bAll.onclick=()=>setEventFilter('all');
     row.appendChild(bAll);
-    /* 本站離站 */
+
+    /* 本站（離站）容器 */
+    const wrapD=document.createElement('div');
+    const departActive=eventFilter==='depart';
+    wrapD.style.cssText='display:flex;align-items:center;border:0.5px solid '+(departActive?'#378ADD':'var(--color-border-secondary)')+';border-right:none;background:'+(departActive?'#EBF4FF':'var(--color-background-primary)')+';height:30px';
     const lblD=document.createElement('span');
-    lblD.textContent='本站（離站）';
-    lblD.style.cssText='font-size:12px;color:var(--color-text-secondary)';
-    row.appendChild(lblD);
+    lblD.textContent='離站';
+    lblD.style.cssText='font-size:12px;padding:0 6px;color:'+(departActive?'#185FA5':'var(--color-text-secondary)')+';white-space:nowrap;cursor:pointer';
+    lblD.onclick=()=>setEventFilter('depart');
+    wrapD.appendChild(lblD);
     const selD=makeStationSelect(eventFilterDepart||'G9',function(v){eventFilterDepart=v;setEventFilter('depart');});
-    if(eventFilter==='depart')selD.style.borderColor='#378ADD';
+    selD.style.cssText='font-family:var(--font-sans);font-size:11px;padding:0 4px;border:none;background:transparent;color:var(--color-text-primary);cursor:pointer;height:28px;max-width:130px';
     selD.onfocus=function(){setEventFilter('depart');};
-    row.appendChild(selD);
-    /* 本站到站 */
+    wrapD.appendChild(selD);
+    row.appendChild(wrapD);
+
+    /* 本站（到站）容器 */
+    const wrapA=document.createElement('div');
+    const arriveActive=eventFilter==='arrive';
+    wrapA.style.cssText='display:flex;align-items:center;border:0.5px solid '+(arriveActive?'#378ADD':'var(--color-border-secondary)')+';border-radius:0 var(--border-radius-md) var(--border-radius-md) 0;background:'+(arriveActive?'#EBF4FF':'var(--color-background-primary)')+';height:30px';
     const lblA=document.createElement('span');
-    lblA.textContent='本站（到站）';
-    lblA.style.cssText='font-size:12px;color:var(--color-text-secondary)';
-    row.appendChild(lblA);
+    lblA.textContent='到站';
+    lblA.style.cssText='font-size:12px;padding:0 6px;color:'+(arriveActive?'#185FA5':'var(--color-text-secondary)')+';white-space:nowrap;cursor:pointer';
+    lblA.onclick=()=>setEventFilter('arrive');
+    wrapA.appendChild(lblA);
     const selA=makeStationSelect(eventFilterArrive||'G9',function(v){eventFilterArrive=v;setEventFilter('arrive');});
-    if(eventFilter==='arrive')selA.style.borderColor='#378ADD';
+    selA.style.cssText='font-family:var(--font-sans);font-size:11px;padding:0 4px;border:none;background:transparent;color:var(--color-text-primary);cursor:pointer;height:28px;max-width:130px';
     selA.onfocus=function(){setEventFilter('arrive');};
-    row.appendChild(selA);
-    wrap.appendChild(row);
+    wrapA.appendChild(selA);
+    row.appendChild(wrapA);
+
   } else {
-    /* 一般車站帳號：三個按鈕，本站依帳號綁定站碼 */
-    const row=document.createElement('div');
+    /* A/B 級一般車站：[本站（離站）][本站（到站）][全線] 三個按鈕同一列 */
     row.style.cssText='display:flex;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden;font-size:12px';
     [['depart','本站（離站）'],['arrive','本站（到站）'],['all','全線']].forEach(([mode,label])=>{
       const isThis=eventFilter===mode;
       const b=document.createElement('button');
       b.textContent=label;
-      b.style.cssText='padding:5px 10px;background:'+(isThis?'#378ADD':'var(--color-background-primary)')+';color:'+(isThis?'#fff':'var(--color-text-secondary)')+';border:none;cursor:pointer;font-family:var(--font-sans);white-space:nowrap';
+      b.style.cssText='padding:5px 10px;background:'+(isThis?'#378ADD':'var(--color-background-primary)')+';color:'+(isThis?'#fff':'var(--color-text-secondary)')+';border:none;border-right:0.5px solid var(--color-border-secondary);cursor:pointer;font-family:var(--font-sans);white-space:nowrap';
       b.onclick=()=>setEventFilter(mode);
       row.appendChild(b);
     });
-    wrap.appendChild(row);
   }
+  wrap.appendChild(row);
 }
+
 function setSFilter(val){
   eventFilterStation=val;
   console.log('篩選站碼:',val,'事件列表:',events.map(e=>({from:e.from,to:e.to,station:e.station})));
