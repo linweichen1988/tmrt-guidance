@@ -1003,7 +1003,27 @@ function getNextN(st,dir,n=4){
 }
 function updateTrains(){const st=document.getElementById('f-from').value||'G9',dir=document.getElementById('f-dir').value||'down';document.getElementById('train-options').innerHTML=getNextN(st,dir,4).map((dt,i)=>'<label class="train-option '+(i===0?'selected':'')+'"><input type="radio" name="tsel" value="'+dt.toISOString()+'" '+(i===0?'checked':'')+' onchange="this.closest(\'.next-trains\').querySelectorAll(\'.train-option\').forEach(x=>x.classList.remove(\'selected\'));this.closest(\'.train-option\').classList.add(\'selected\')">'+fmt(dt)+' 發車'+(i===0?' <span style="font-size:10px;color:#0c447c">（下一班）</span>':'')+'</label>').join('');}
 function clearNF(){['f-n1','f-n2','f-n3','f-n4','f-n5'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';})}
-function openModal(){if(suspended){showToast('系統暫停使用中，無法新增事件');return;}document.getElementById('f-edit-id').value='';document.getElementById('mf-title').textContent='新增引導事件';document.getElementById('mf-submit').textContent='建立事件';document.getElementById('train-sel-wrap').style.display='';document.getElementById('f-from').value='G9';document.getElementById('f-to').value='G13';clearNF();autoDir();document.getElementById('modal-form').classList.add('open');}
+
+function getDefaultStation(){
+  if(!CU) return 'G9';
+  const st=CU.station;
+  if(st==='北段辦') return 'G9';
+  if(st==='南段辦') return 'G17';
+  /* 一般車站帳號直接用綁定的站碼 */
+  const validStations=['G0','G3','G4','G5','G6','G7','G8','G8a','G9','G10','G10a','G11','G12','G13','G14','G15','G16','G17'];
+  return validStations.includes(st)?st:'G9';
+}
+function getDefaultToStation(from){
+  /* 迄站：從起站往後3站作為預設 */
+  const order=['G0','G3','G4','G5','G6','G7','G8','G8a','G9','G10','G10a','G11','G12','G13','G14','G15','G16','G17'];
+  const idx=order.indexOf(from);
+  if(idx===-1) return 'G13';
+  /* 往高鐵方向預設往後3站，若已是末站則往前 */
+  const toIdx=Math.min(idx+3, order.length-1);
+  return toIdx===idx?order[Math.max(0,idx-3)]:order[toIdx];
+}
+
+function openModal(){if(suspended){showToast('系統暫停使用中，無法新增事件');return;}document.getElementById('f-edit-id').value='';document.getElementById('mf-title').textContent='新增引導事件';document.getElementById('mf-submit').textContent='建立事件';document.getElementById('train-sel-wrap').style.display='';const defFrom=getDefaultStation();document.getElementById('f-from').value=defFrom;document.getElementById('f-to').value=defFrom;clearNF();autoDir();document.getElementById('modal-form').classList.add('open');}
 function openEditModal(id){const ev=events.find(e=>e.id===id);if(!ev)return;document.getElementById('f-edit-id').value=id;document.getElementById('mf-title').textContent='編輯引導事件';document.getElementById('mf-submit').textContent='儲存變更';document.getElementById('train-sel-wrap').style.display='none';document.getElementById('f-from').value=ev.from;document.getElementById('f-to').value=ev.to;document.getElementById('f-dir').value=ev.dir;document.getElementById('dir-display').textContent=ev.dir==='down'?'↓ 下行（往高鐵臺中站）':'↑ 上行（往北屯總站）';document.getElementById('f-train').value=ev.trainGroup||'';document.getElementById('f-type').value=ev.type;document.getElementById('f-gate').value=ev.gate;document.getElementById('f-gender').value=ev.gender;parseNote(ev.note||'');document.getElementById('modal-form').classList.add('open');}
 function closeFormModal(){document.getElementById('modal-form').classList.remove('open');}
 function submitEvent(){const eid=document.getElementById('f-edit-id').value,note=buildNote();if(eid){const ev=events.find(e=>e.id==eid);if(!ev)return;ev.from=document.getElementById('f-from').value;ev.to=document.getElementById('f-to').value;ev.dir=document.getElementById('f-dir').value;ev.trainGroup=document.getElementById('f-train').value;ev.type=document.getElementById('f-type').value;ev.gate=document.getElementById('f-gate').value;ev.gender=document.getElementById('f-gender').value;ev.note=note;closeFormModal();renderEvents();return;}const sel=document.querySelector('input[name="tsel"]:checked');if(!sel){alert('請選擇班次');return;}if(!CU)return;events.push({id:nextId++,from:document.getElementById('f-from').value||'G9',to:document.getElementById('f-to').value||'G13',dir:document.getElementById('f-dir').value,trainGroup:document.getElementById('f-train').value||'',gate:document.getElementById('f-gate').value,gender:document.getElementById('f-gender').value,type:document.getElementById('f-type').value,note,departTime:new Date(sel.value),createdBy:CU.username,station:document.getElementById('f-from').value||'G9',stationTo:document.getElementById('f-to').value||'G13'});closeFormModal();renderEvents();}
