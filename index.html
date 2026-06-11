@@ -1260,7 +1260,7 @@ function tick(){
     }
     if(ms<=0&&!doF.has(ev.id)){
       doF.add(ev.id);
-      if(isMyArrival&&!alertOpen){startLoop('success');showAlert('success','✅','列車已到站',aInfo(ev),'','<button class="btn btn-primary" onclick="finishOk(''+ev.id+'')"><i class="ti ti-check"></i> 已接到旅客</button><button class="btn" style="color:#E24B4A;border-color:#E24B4A;margin-left:8px" onclick="finishFail(''+ev.id+'')"><i class="ti ti-x"></i> 未接到旅客</button>');}
+      if(isMyArrival&&!alertOpen){startLoop('success');showAlert('success','✅','列車已到站',aInfo(ev),'','<button class="btn btn-primary" onclick="finishOk('+JSON.stringify(ev.id)+')"><i class="ti ti-check"></i> 已接到旅客</button><button class="btn" style="color:#E24B4A;border-color:#E24B4A;margin-left:8px" onclick="finishFail('+JSON.stringify(ev.id)+')"><i class="ti ti-x"></i> 未接到旅客</button>');}
     }
   });
 }
