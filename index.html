@@ -568,12 +568,51 @@ input[type=range]{flex:1;accent-color:#378ADD}
 
 <div class="toast" id="toast"></div>
 
-<script>
-/* ── 帳號資料庫 ── */
-let ACCOUNTS=[
-  {id:'a1',username:'110219',name:'林維辰',password:'zxc110219',station:'北段辦',role:'S',ip:'172.21.26.11',status:'啟用',lastLogin:'2026/06/04 08:42',lastLoginIp:'172.21.26.11'},
-];
+<script type="module">
+/* ── Firebase 初始化 ── */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAZhpwsD_z18qRUdYchFCTT4HB7VWcpQQI",
+  authDomain: "tmrt-guidance.firebaseapp.com",
+  projectId: "tmrt-guidance",
+  storageBucket: "tmrt-guidance.firebasestorage.app",
+  messagingSenderId: "213515976449",
+  appId: "1:213515976449:web:50e541bf6e2240ab48a500"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* ── 帳號資料庫（從 Firestore 載入） ── */
+let ACCOUNTS=[];
 let nextAccId=2;
+let dbReady=false;
+
+async function loadAccounts(){
+  try{
+    const snap=await getDocs(collection(db,'accounts'));
+    ACCOUNTS=snap.docs.map(d=>({...d.data(),id:d.id}));
+    /* 計算下一個 ID */
+    const nums=ACCOUNTS.map(u=>parseInt(u.id.replace('a',''))).filter(n=>!isNaN(n));
+    nextAccId=(nums.length?Math.max(...nums):1)+1;
+    dbReady=true;
+  }catch(e){
+    console.error('載入帳號失敗',e);
+    /* fallback：維持空陣列，讓系統還是能運作 */
+    dbReady=true;
+  }
+}
+
+async function saveAccToDb(u){
+  try{ await setDoc(doc(db,'accounts',u.id),u); }catch(e){console.error('儲存帳號失敗',e);}
+}
+async function deleteAccFromDb(id){
+  try{ await deleteDoc(doc(db,'accounts',id)); }catch(e){console.error('刪除帳號失敗',e);}
+}
+async function updateAccInDb(u){
+  try{ await updateDoc(doc(db,'accounts',u.id),u); }catch(e){console.error('更新帳號失敗',e);}
+}
 
 /* ── 登入邏輯 ── */
 let loginAttempts=0,lockTimer=null,lockRemain=300,CU=null;
@@ -593,12 +632,14 @@ function togglePwd(inputId,btn){
   if(inp.type==='password'){inp.type='text';icon.className='ti ti-eye-off';}
   else{inp.type='password';icon.className='ti ti-eye';}
 }
-function doLogin(){
+async function doLogin(){
   if(lockTimer)return;
   const acc=document.getElementById('l-acc').value.trim();
   const pwd=document.getElementById('l-pwd').value;
   const errEl=document.getElementById('l-err');
   if(!acc||!pwd){errEl.innerHTML='<i class="ti ti-alert-circle"></i> 請輸入帳號與密碼';if(!acc)document.getElementById('l-acc').classList.add('inp-err');if(!pwd)document.getElementById('l-pwd').classList.add('inp-err');return;}
+  /* 等 DB 就緒 */
+  if(!dbReady){errEl.innerHTML='<i class="ti ti-alert-circle"></i> 系統初始化中，請稍候…';return;}
   const user=ACCOUNTS.find(u=>u.username===acc&&u.status==='啟用');
   if(!user){errEl.innerHTML='<i class="ti ti-alert-circle"></i> 帳號不存在或已停用';document.getElementById('l-acc').classList.add('inp-err');return;}
   if(user.password!==pwd){
@@ -616,7 +657,9 @@ function doLogin(){
   const prevLogin=user.lastLogin||'—';
   const prevIp=user.lastLoginIp||'—';
   user.lastLogin=nowStr();
-  user.lastLoginIp=user.ip;
+  user.lastLoginIp=user.ip||'—';
+  /* 寫回 Firestore */
+  await updateAccInDb(user);
   loginSuccess(prevLogin,prevIp);
 }
 function nowStr(){const n=new Date();return n.getFullYear()+'/'+(n.getMonth()+1).toString().padStart(2,'0')+'/'+n.getDate().toString().padStart(2,'0')+' '+n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0');}
@@ -709,15 +752,18 @@ function saveAcc(){
   if(eid){
     const u=ACCOUNTS.find(x=>x.id===eid);if(!u)return;
     u.username=uname;u.name=name;u.password=pwd;u.station=station;u.role=role;u.ip=ip;
+    updateAccInDb(u);
   } else {
-    ACCOUNTS.push({id:'a'+nextAccId++,username:uname,name,password:pwd,station,role,ip,status:'啟用',lastLogin:'—',lastLoginIp:'—'});
+    const newU={id:'a'+nextAccId++,username:uname,name,password:pwd,station,role,ip,status:'啟用',lastLogin:'—',lastLoginIp:'—'};
+    ACCOUNTS.push(newU);
+    saveAccToDb(newU);
   }
   document.getElementById('modal-acc').classList.remove('open');
   renderAccounts();showToast('帳號已儲存');
 }
 function deleteAcc(id){
   if(id==='a1'){showToast('無法刪除主要管理員帳號');return;}
-  if(confirm('確定刪除此帳號？')){ACCOUNTS=ACCOUNTS.filter(u=>u.id!==id);renderAccounts();showToast('帳號已刪除');}
+  if(confirm('確定刪除此帳號？')){deleteAccFromDb(id);ACCOUNTS=ACCOUNTS.filter(u=>u.id!==id);renderAccounts();showToast('帳號已刪除');}
 }
 
 /* ── 站碼順序 ── */
@@ -1380,6 +1426,26 @@ function getFilteredEvents(){
 
 
 /* ══ 手機版選單 ══ */
+
+/* ── 將所有需要 HTML inline handler 呼叫的函式暴露到 window（因為是 module script）── */
+Object.assign(window,{
+  doLogin,doLogout,clearLoginErr,toggleLoginEye,togglePwd,uploadLogo,
+  showPage,openModal,closeModal,openAccModal,openAccEdit,saveAcc,deleteAcc,
+  autoDir,updateTrains,selectTrain,openHistoryEdit,saveHistoryEdit,deleteHistory,
+  filterLog,buildSound,playSoundPreview,saveSoundSettings,resetSoundSettings,
+  applyTT,onTTChange,openSuspendModal,onSReasonChange,executeSuspend,executeRestore,
+  renderSuspendBtn,openMobileMenu,closeMobileMenu,openNewTTModal,saveNewTT,deleteTT,
+  renderTTTable,initTTTableEvents,renderCalMain,setCalMonth,toggleCalDay,saveCalOvr,
+  exportReport,openFilePreview
+});
+
+/* ── 啟動：載入帳號後才顯示登入頁 ── */
+(async()=>{
+  const btn=document.getElementById('l-btn');
+  if(btn){btn.disabled=true;btn.textContent='載入中…';}
+  await loadAccounts();
+  if(btn){btn.disabled=false;btn.textContent='登入';}
+})();
 </script>
 
 <!-- 時刻表版次：新增 Modal -->
