@@ -1241,7 +1241,28 @@ async function submitEvent(){
 function tick(){
   const now=new Date();
   const cd=document.getElementById('clock-display');if(cd)cd.textContent=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
-  events.forEach(ev=>{const ms=ev.departTime-now,el=document.getElementById('cd-'+ev.id),card=document.getElementById('card-'+ev.id);if(!el)return;const cls=cdCls(ms);el.textContent=fmtCd(ms);el.className='countdown-num '+cls;if(card)card.className='event-card '+(cls==='danger'?'danger':cls==='warn'?'warn':'normal');if(ms<=180000&&ms>60000&&!wF.has(ev.id)&&!alertOpen){wF.add(ev.id);startLoop('warn');showAlert('warn','⚠️','準備就緒提醒　距發車約 3 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，已派員至指定地點</button>');}if(ms<=60000&&ms>0&&!dF.has(ev.id)&&!alertOpen){dF.add(ev.id);startLoop('danger');showAlert('danger','🚨','緊急確認　距發車不到 1 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，人員已在月台等候</button>');}if(ms<=0&&!doF.has(ev.id)&&!alertOpen){doF.add(ev.id);startLoop('success');showAlert('success','✅','列車已到站',aInfo(ev),'','<button class="btn btn-primary" onclick="finishOk('+ev.id+')"><i class="ti ti-check"></i> 已接到旅客</button><button class="btn" style="color:#E24B4A;border-color:#E24B4A;margin-left:8px" onclick="finishFail('+ev.id+')"><i class="ti ti-x"></i> 未接到旅客</button>');}});
+  events.forEach(ev=>{
+    const ms=ev.departTime-now,el=document.getElementById('cd-'+ev.id),card=document.getElementById('card-'+ev.id);
+    if(!el)return;
+    const cls=cdCls(ms);
+    el.textContent=fmtCd(ms);
+    el.className='countdown-num '+cls;
+    if(card)card.className='event-card '+(cls==='danger'?'danger':cls==='warn'?'warn':'normal');
+    /* 音效只在：非S級 且 本站是迄站 才觸發 */
+    const isMyArrival=CU&&CU.role!=='S'&&ev.to===CU.station;
+    if(ms<=180000&&ms>60000&&!wF.has(ev.id)){
+      wF.add(ev.id);
+      if(isMyArrival&&!alertOpen){startLoop('warn');showAlert('warn','⚠️','準備就緒提醒　距發車約 3 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，已派員至指定地點</button>');}
+    }
+    if(ms<=60000&&ms>0&&!dF.has(ev.id)){
+      dF.add(ev.id);
+      if(isMyArrival&&!alertOpen){startLoop('danger');showAlert('danger','🚨','緊急確認　距發車不到 1 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，人員已在月台等候</button>');}
+    }
+    if(ms<=0&&!doF.has(ev.id)){
+      doF.add(ev.id);
+      if(isMyArrival&&!alertOpen){startLoop('success');showAlert('success','✅','列車已到站',aInfo(ev),'','<button class="btn btn-primary" onclick="finishOk(''+ev.id+'')"><i class="ti ti-check"></i> 已接到旅客</button><button class="btn" style="color:#E24B4A;border-color:#E24B4A;margin-left:8px" onclick="finishFail(''+ev.id+'')"><i class="ti ti-x"></i> 未接到旅客</button>');}
+    }
+  });
 }
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 
