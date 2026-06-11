@@ -1553,13 +1553,16 @@ function getFilteredEvents(){
 /* ── 將所有需要 HTML inline handler 呼叫的函式暴露到 window（因為是 module script）── */
 Object.assign(window,{
   doLogin,doLogout,clearLoginErr,toggleLoginEye,togglePwd,uploadLogo,
-  showPage,openModal,closeModal,openAccModal,openAccEdit,saveAcc,deleteAcc,
-  autoDir,updateTrains,selectTrain,openHistoryEdit,saveHistoryEdit,deleteHistory,
-  filterLog,buildSound,playSoundPreview,saveSoundSettings,resetSoundSettings,
+  showPage,openModal,closeFormModal,openAccModal,openAccEdit,saveAcc,deleteAcc,
+  autoDir,updateTrains,openHistoryEdit,saveHistoryEdit,deleteHistory,
+  filterLog,buildSound,playSoundPreview,saveAllSound,resetSoundCS,
   applyTT,onTTChange,openSuspendModal,onSReasonChange,executeSuspend,executeRestore,
-  renderSuspendBtn,openMobileMenu,closeMobileMenu,openNewTTModal,saveNewTT,deleteTT,
-  renderTTTable,initTTTableEvents,renderCalMain,setCalMonth,toggleCalDay,saveCalOvr,
-  exportReport,openFilePreview
+  renderSuspendBtn,openMobileMenu,closeMobileMenu,openNewTT,submitNewTT,askDeleteTT,
+  renderTTTable,initTTTableEvents,renderCalMain,calPrevMonth,calNextMonth,
+  openFilePreview,openSoundReplace,closeSoundReplace,confirmSoundReplace,
+  selSoundPreset,handleSoundUpload,handleNewTTFile,playCurrentSoundCS,
+  finishOk,finishFail,submitFail,delEvent,openEditModal,submitEvent,
+  closeAlert,confirmDeleteTT,showToast
 });
 
 /* ── 啟動：載入帳號後才顯示登入頁 ── */
