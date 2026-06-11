@@ -693,7 +693,7 @@ function loginSuccess(prevLogin,prevIp){
   document.getElementById('last-login-ip').textContent=prevIp;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
-  renderAccounts();renderHistory();renderLog(LOGS);renderEvents();renderTTBanner();renderSuspendBtn();buildSound();renderTTTable();initTTTableEvents();renderCalMain();setTimeout(()=>addLog('login','登入系統'),200);
+  renderAccounts();renderHistory();renderLog(LOGS);renderEvents();renderTTBanner();renderSuspendBtn();loadSoundSettings();renderTTTable();initTTTableEvents();renderCalMain();setTimeout(()=>addLog('login','登入系統'),200);
   eventFilter=CU.role==='S'?'all':'arrive';
   eventFilterStation='all';
   buildEventFilter();
@@ -941,8 +941,8 @@ function buildSound(){
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <span style="font-size:12px;color:var(--color-text-secondary);white-space:nowrap;display:flex;align-items:center;gap:4px"><i class="ti ti-volume" style="font-size:14px"></i> 音量</span>
-        <input type="range" min="0" max="100" value="${SC[s.k].vol}" oninput="SC['${s.k}'].vol=parseInt(this.value);this.nextElementSibling.textContent=this.value+'%'" style="flex:1;accent-color:#378ADD">
-        <span style="font-size:12px;font-weight:500;min-width:32px;text-align:right">${SC[s.k].vol}%</span>
+        <input type="range" min="0" max="100" value="${SC[s.k].vol}" id="svol-${s.k}" oninput="SC['${s.k}'].vol=parseInt(this.value);document.getElementById('svol-lbl-${s.k}').textContent=this.value+'%'" style="flex:1;accent-color:#378ADD">
+        <span style="font-size:12px;font-weight:500;min-width:32px;text-align:right" id="svol-lbl-${s.k}">${SC[s.k].vol}%</span>
       </div>
     </div>`).join('');
 }
@@ -953,7 +953,43 @@ function refreshSoundCurrent(k){
   if(t){t.textContent=SC[k].current.type==='custom'?'自訂':'內建';t.style.background=SC[k].current.type==='custom'?'#EEEDFE':'#EAF3DE';t.style.color=SC[k].current.type==='custom'?'#3C3489':'#3B6D11';}
 }
 function resetSoundCS(k){SC[k].current={...SOUND_DEFAULTS[k]};if(k!=='notify')refreshSoundCurrent(k);else buildSound();showToast('已恢復預設音效');}
-function saveAllSound(){showToast('音效設定已儲存');}
+async function saveAllSound(){
+  if(!CU)return;
+  const data={
+    warn: {id:SC.warn.current.id,type:SC.warn.current.type,name:SC.warn.current.name,vol:SC.warn.vol},
+    danger:{id:SC.danger.current.id,type:SC.danger.current.type,name:SC.danger.current.name,vol:SC.danger.vol},
+    success:{id:SC.success.current.id,type:SC.success.current.type,name:SC.success.current.name,vol:SC.success.vol},
+    notify:{id:SC.notify.current.id,type:SC.notify.current.type,name:SC.notify.current.name,vol:SC.notify.vol},
+  };
+  try{
+    await setDoc(doc(db,'soundSettings',CU.username),data);
+    showToast('音效設定已儲存');
+  }catch(e){showToast('儲存失敗：'+e.message);}
+}
+
+async function loadSoundSettings(){
+  if(!CU)return;
+  try{
+    const snap=await getDocs(query(collection(db,'soundSettings'),where('__name__','==',CU.username)));
+    if(!snap.empty){
+      const d=snap.docs[0].data();
+      ['warn','danger','success','notify'].forEach(k=>{
+        if(d[k]){
+          SC[k].current={type:d[k].type,id:d[k].id,name:d[k].name};
+          SC[k].vol=typeof d[k].vol==='number'?d[k].vol:SC[k].vol;
+        }
+      });
+    }
+  }catch(e){console.error('載入音效設定失敗',e);}
+  buildSound();
+  /* 同步滑桿顯示值 */
+  ['warn','danger','success','notify'].forEach(k=>{
+    const el=document.getElementById('svol-'+k);
+    const lb=document.getElementById('svol-lbl-'+k);
+    if(el)el.value=SC[k].vol;
+    if(lb)lb.textContent=SC[k].vol+'%';
+  });
+}
 function playCurrentSoundCS(k){playCS(k);}
 
 function openSoundReplace(k){
@@ -1559,7 +1595,7 @@ Object.assign(window,{
   applyTT,onTTChange,openSuspendModal,onSReasonChange,executeSuspend,executeRestore,
   renderSuspendBtn,openMobileMenu,closeMobileMenu,openNewTT,submitNewTT,askDeleteTT,
   renderTTTable,initTTTableEvents,renderCalMain,calPrevMonth,calNextMonth,
-  openFilePreview,openSoundReplace,closeSoundReplace,confirmSoundReplace,
+  openFilePreview,openSoundReplace,closeSoundReplace,confirmSoundReplace,loadSoundSettings,
   selSoundPreset,handleSoundUpload,handleNewTTFile,playCurrentSoundCS,
   finishOk,finishFail,submitFail,delEvent,openEditModal,submitEvent,
   closeAlert,confirmDeleteTT,showToast
