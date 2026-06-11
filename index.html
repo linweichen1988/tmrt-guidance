@@ -875,6 +875,22 @@ const LOGS=[
 function renderLog(data){const rb={S:'badge-purple',A:'badge-blue',B:'badge-gray'};document.getElementById('log-body').innerHTML=data.map(r=>`<tr><td style="font-size:11px;white-space:nowrap;font-family:monospace">${r.time}</td><td style="font-size:11px;font-weight:500">${r.acc}</td><td>${r.name}</td><td><span class="badge ${rb[r.role]||'badge-gray'}">${r.role}</span></td><td><span class="log-op-badge ${r.ok?OP_C[r.op]:'op-fail'}">${OP_L[r.op]||r.op}</span></td><td style="font-size:11px;color:var(--color-text-secondary)">${r.desc}</td><td style="font-size:11px;font-family:monospace">${r.ip}</td><td style="${r.ok?'color:#1D9E75':'color:#E24B4A'};font-size:13px">${r.ok?'✓':'✗'}</td></tr>`).join('');document.getElementById('log-count').textContent='共 '+data.length+' 筆記錄';}
 function filterLog(){const op=document.getElementById('lf-op').value,role=document.getElementById('lf-role').value;renderLog(LOGS.filter(r=>(!op||r.op===op)&&(!role||r.role===role)));}
 
+/* ── 語音通知（新增事件通知迄站） ── */
+function speakArrivalNotice(){
+  if(!window.speechSynthesis)return;
+  const msg='您有一則旅客引導訊息';
+  let count=0;
+  function doSpeak(){
+    const u=new SpeechSynthesisUtterance(msg);
+    u.lang='zh-TW';
+    u.rate=0.9;
+    u.onend=()=>{count++;if(count<3)setTimeout(doSpeak,600);};
+    window.speechSynthesis.speak(u);
+  }
+  window.speechSynthesis.cancel();
+  doSpeak();
+}
+
 /* ── 音效 ── */
 let audioCtx=null;
 function ga(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
@@ -1072,7 +1088,8 @@ function getDefaultToStation(from){
 function openModal(){if(suspended){showToast('系統暫停使用中，無法新增事件');return;}document.getElementById('f-edit-id').value='';document.getElementById('mf-title').textContent='新增引導事件';document.getElementById('mf-submit').textContent='建立事件';document.getElementById('train-sel-wrap').style.display='';const defFrom=getDefaultStation();document.getElementById('f-from').value=defFrom;document.getElementById('f-to').value=defFrom;clearNF();autoDir();document.getElementById('modal-form').classList.add('open');}
 function openEditModal(id){const ev=events.find(e=>e.id===id);if(!ev)return;document.getElementById('f-edit-id').value=id;document.getElementById('mf-title').textContent='編輯引導事件';document.getElementById('mf-submit').textContent='儲存變更';document.getElementById('train-sel-wrap').style.display='none';document.getElementById('f-from').value=ev.from;document.getElementById('f-to').value=ev.to;document.getElementById('f-dir').value=ev.dir;document.getElementById('dir-display').textContent=ev.dir==='down'?'↓ 下行（往高鐵臺中站）':'↑ 上行（往北屯總站）';document.getElementById('f-train').value=ev.trainGroup||'';document.getElementById('f-type').value=ev.type;document.getElementById('f-gate').value=ev.gate;document.getElementById('f-gender').value=ev.gender;parseNote(ev.note||'');document.getElementById('modal-form').classList.add('open');}
 function closeFormModal(){document.getElementById('modal-form').classList.remove('open');}
-function submitEvent(){const eid=document.getElementById('f-edit-id').value,note=buildNote();if(eid){const ev=events.find(e=>e.id==eid);if(!ev)return;ev.from=document.getElementById('f-from').value;ev.to=document.getElementById('f-to').value;ev.dir=document.getElementById('f-dir').value;ev.trainGroup=document.getElementById('f-train').value;ev.type=document.getElementById('f-type').value;ev.gate=document.getElementById('f-gate').value;ev.gender=document.getElementById('f-gender').value;ev.note=note;closeFormModal();renderEvents();return;}const sel=document.querySelector('input[name="tsel"]:checked');if(!sel){alert('請選擇班次');return;}if(!CU)return;events.push({id:nextId++,from:document.getElementById('f-from').value||'G9',to:document.getElementById('f-to').value||'G13',dir:document.getElementById('f-dir').value,trainGroup:document.getElementById('f-train').value||'',gate:document.getElementById('f-gate').value,gender:document.getElementById('f-gender').value,type:document.getElementById('f-type').value,note,departTime:new Date(sel.value),createdBy:CU.username,station:document.getElementById('f-from').value||'G9',stationTo:document.getElementById('f-to').value||'G13'});closeFormModal();renderEvents();}
+function submitEvent(){const eid=document.getElementById('f-edit-id').value,note=buildNote();if(eid){const ev=events.find(e=>e.id==eid);if(!ev)return;ev.from=document.getElementById('f-from').value;ev.to=document.getElementById('f-to').value;ev.dir=document.getElementById('f-dir').value;ev.trainGroup=document.getElementById('f-train').value;ev.type=document.getElementById('f-type').value;ev.gate=document.getElementById('f-gate').value;ev.gender=document.getElementById('f-gender').value;ev.note=note;closeFormModal();renderEvents();return;}const sel=document.querySelector('input[name="tsel"]:checked');if(!sel){alert('請選擇班次');return;}if(!CU)return;const newTo=document.getElementById('f-to').value||'G13';const newFrom=document.getElementById('f-from').value||'G9';events.push({id:nextId++,from:newFrom,to:newTo,dir:document.getElementById('f-dir').value,trainGroup:document.getElementById('f-train').value||'',gate:document.getElementById('f-gate').value,gender:document.getElementById('f-gender').value,type:document.getElementById('f-type').value,note,departTime:new Date(sel.value),createdBy:CU.username,station:newFrom,stationTo:newTo});closeFormModal();renderEvents();
+if(CU&&(CU.role==='S'||newTo===CU.station)){speakArrivalNotice();}}
 function tick(){
   const now=new Date();
   const cd=document.getElementById('clock-display');if(cd)cd.textContent=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
