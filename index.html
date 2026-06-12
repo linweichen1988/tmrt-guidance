@@ -589,19 +589,23 @@ let ACCOUNTS=[];
 let nextAccId=2;
 let dbReady=false;
 
-async function loadAccounts(){
-  try{
-    const snap=await getDocs(collection(db,'accounts'));
-    ACCOUNTS=snap.docs.map(d=>({...d.data(),id:d.id}));
-    /* 計算下一個 ID */
-    const nums=ACCOUNTS.map(u=>parseInt(u.id.replace('a',''))).filter(n=>!isNaN(n));
-    nextAccId=(nums.length?Math.max(...nums):1)+1;
-    dbReady=true;
-  }catch(e){
-    console.error('載入帳號失敗',e);
-    /* fallback：維持空陣列，讓系統還是能運作 */
-    dbReady=true;
-  }
+let accUnsubscribe=null;
+function loadAccounts(){
+  return new Promise(resolve=>{
+    if(accUnsubscribe)accUnsubscribe();
+    accUnsubscribe=onSnapshot(collection(db,'accounts'),snap=>{
+      ACCOUNTS=snap.docs.map(d=>({...d.data(),id:d.id}));
+      const nums=ACCOUNTS.map(u=>parseInt(u.id.replace('a',''))).filter(n=>!isNaN(n));
+      nextAccId=(nums.length?Math.max(...nums):1)+1;
+      if(!dbReady){dbReady=true;resolve();}
+      /* 即時踢出：若目前登入帳號被停用 */
+      if(CU){
+        const me=ACCOUNTS.find(u=>u.username===CU.username);
+        if(me&&me.status!=='啟用'){showToast('您的帳號已被停用，即將登出');setTimeout(doLogout,2000);}
+      }
+      if(CU)renderAccounts();
+    },e=>{console.error('帳號監聽失敗',e);dbReady=true;resolve();});
+  });
 }
 
 async function saveAccToDb(u){
@@ -720,7 +724,15 @@ function loginSuccess(prevLogin,prevIp){
 
   setInterval(()=>{tick();},1000);tick();startEventsListener();
 }
-function doLogout(){if(confirm('確定登出？')){CU=null;document.getElementById('main-screen').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('l-acc').value='';document.getElementById('l-pwd').value='';document.getElementById('l-err').textContent='';document.getElementById('l-attempt').textContent='';}}
+function doLogout(){if(confirm('確定登出？')){
+  /* 清除所有 onSnapshot listener */
+  if(typeof accUnsubscribe==='function'){accUnsubscribe();accUnsubscribe=null;}
+  if(typeof eventsUnsubscribe==='function'){eventsUnsubscribe();eventsUnsubscribe=null;}
+  if(typeof ttUnsubscribe==='function'){ttUnsubscribe();ttUnsubscribe=null;}
+  if(typeof calUnsubscribe==='function'){calUnsubscribe();calUnsubscribe=null;}
+  if(typeof soundUnsubscribe==='function'){soundUnsubscribe();soundUnsubscribe=null;}
+  CU=null;eventsInitialized=false;knownEventIds.clear();
+  LOGS=[];historyData=[];TT_VERSIONS=[];calOvr={};events=[];document.getElementById('main-screen').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('l-acc').value='';document.getElementById('l-pwd').value='';document.getElementById('l-err').textContent='';document.getElementById('l-attempt').textContent='';}}
 function uploadLogo(input){
   const file=input.files[0];if(!file)return;
   const url=URL.createObjectURL(file);
@@ -1031,12 +1043,13 @@ async function saveAllSound(){
   }catch(e){showToast('儲存失敗：'+e.message);}
 }
 
-async function loadSoundSettings(){
+let soundUnsubscribe=null;
+function loadSoundSettings(){
   if(!CU)return;
-  try{
-    const snap=await getDocs(query(collection(db,'soundSettings'),where('__name__','==',CU.username)));
-    if(!snap.empty){
-      const d=snap.docs[0].data();
+  if(soundUnsubscribe)soundUnsubscribe();
+  soundUnsubscribe=onSnapshot(doc(db,'soundSettings',CU.username),snap=>{
+    if(snap.exists()){
+      const d=snap.data();
       ['warn','danger','success','notify'].forEach(k=>{
         if(d[k]){
           SC[k].current={type:d[k].type,id:d[k].id,name:d[k].name};
@@ -1044,15 +1057,14 @@ async function loadSoundSettings(){
         }
       });
     }
-  }catch(e){console.error('載入音效設定失敗',e);}
-  buildSound();
-  /* 同步滑桿顯示值 */
-  ['warn','danger','success','notify'].forEach(k=>{
-    const el=document.getElementById('svol-'+k);
-    const lb=document.getElementById('svol-lbl-'+k);
-    if(el)el.value=SC[k].vol;
-    if(lb)lb.textContent=SC[k].vol+'%';
-  });
+    buildSound();
+    ['warn','danger','success','notify'].forEach(k=>{
+      const el=document.getElementById('svol-'+k);
+      const lb=document.getElementById('svol-lbl-'+k);
+      if(el)el.value=SC[k].vol;
+      if(lb)lb.textContent=SC[k].vol+'%';
+    });
+  },e=>console.error('音效設定監聽失敗',e));
 }
 function playCurrentSoundCS(k){playCS(k);}
 
@@ -1369,9 +1381,11 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 let TT_VERSIONS=[];
 let pendingDelVid=null,newTTFile=null,editTTFile=null;
 
-async function loadTTVersions(){
-  try{
-    const snap=await getDocs(query(collection(db,'ttVersions'),orderBy('uploadDate','desc')));
+let ttUnsubscribe=null;
+function loadTTVersions(){
+  if(ttUnsubscribe)ttUnsubscribe();
+  const q=query(collection(db,'ttVersions'),orderBy('uploadDate','desc'));
+  ttUnsubscribe=onSnapshot(q,async snap=>{
     if(snap.empty){
       /* 第一次：寫入預設版本 */
       const defaults=[
@@ -1380,13 +1394,14 @@ async function loadTTVersions(){
         {name:'H05_0930_10R',type:'常態－假期其餘日',file:'假期其餘日離峰9.5分_H05_0930_10R.pdf',uploadDate:'2026/01/10',uploader:'系統管理員',start:'2026/01/10',end:'',status:'啟用中',note:'',createdAt:new Date()},
         {name:'MARATHON_20260315',type:'特殊',file:'馬拉松特殊時刻表_20260315.pdf',uploadDate:'2026/02/26',uploader:'楊貿勛',start:'2026/03/15',end:'2026/03/15',status:'已停用',note:'2026臺中城市半程馬拉松',createdAt:new Date()},
       ];
+      TT_VERSIONS=[];
       for(const d of defaults){const ref=await addDoc(collection(db,'ttVersions'),d);TT_VERSIONS.push({...d,id:ref.id});}
     } else {
       TT_VERSIONS=snap.docs.map(d=>({...d.data(),id:d.id}));
     }
     renderTTTable();
     renderTTBanner();
-  }catch(e){console.error('載入時刻表失敗',e);}
+  },e=>console.error('時刻表監聽失敗',e));
 }
 
 async function saveTTToDb(tt){
@@ -1534,13 +1549,14 @@ const CAL_LABELS={weekday:'平日版',first:'假期首日版',rest:'假期其餘
 const CAL_BADGE={weekday:'background:#E6F1FB;color:#0C447C;border:0.5px solid #B5D4F4',first:'background:#FAEEDA;color:#633806;border:0.5px solid #FAC775',rest:'background:#EAF3DE;color:#3B6D11;border:0.5px solid #C0DD97',special:'background:#EEEDFE;color:#3C3489;border:0.5px solid #AFA9EC',warning:'background:#FCEBEB;color:#791F1F;border:0.5px solid #F09595'};
 let calOvr={},calYear=2026,calMonth=6,calEditKey=null,calEditSel=null,calEditSvId=null;
 
-async function loadCalOvr(){
-  try{
-    const snap=await getDocs(collection(db,'calOverrides'));
+let calUnsubscribe=null;
+function loadCalOvr(){
+  if(calUnsubscribe)calUnsubscribe();
+  calUnsubscribe=onSnapshot(collection(db,'calOverrides'),snap=>{
     calOvr={};
     snap.docs.forEach(d=>{calOvr[d.id]={...d.data()};});
     renderCalMain();
-  }catch(e){console.error('載入行事曆失敗',e);}
+  },e=>console.error('行事曆監聽失敗',e));
 }
 async function saveCalOvrToDb(key,val){
   try{await setDoc(doc(db,'calOverrides',key),val);}catch(e){console.error('儲存行事曆失敗',e);}
