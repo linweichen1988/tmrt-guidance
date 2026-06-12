@@ -385,7 +385,16 @@ input[type=range]{flex:1;accent-color:#378ADD}
 <div class="page" id="page-accounts">
   <div class="topbar"><div class="topbar-title">權限管理</div><button class="btn btn-primary" onclick="openAccModal()"><i class="ti ti-plus"></i>新增帳號</button></div>
   <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:10px">帳號登入綁定 IP · 連續 5 次密碼錯誤鎖定 5 分鐘 · S級可查看所有帳號密碼</div>
-  <div class="card" style="margin-bottom:12px"><table class="vtable"><thead><tr><th>帳號</th><th>姓名</th><th>車站</th><th>層級</th><th>密碼</th><th>綁定 IP</th><th>狀態</th><th>操作</th></tr></thead><tbody id="accounts-body"></tbody></table></div>
+  <div class="card" style="margin-bottom:12px"><div id="acc-batch-bar" style="display:none;align-items:center;gap:8px;padding:8px 12px;background:var(--color-background-info);border-radius:var(--border-radius-md);margin-bottom:8px;font-size:13px">
+  <span id="acc-batch-count" style="color:#0c447c;font-weight:500"></span>
+  <button class="btn btn-sm" onclick="batchDeleteAcc()" style="color:#E24B4A;border-color:#E24B4A"><i class="ti ti-trash"></i> 批次刪除</button>
+  <button class="btn btn-sm" onclick="batchResetDevice()" style="color:#E8861A;border-color:#E8861A"><i class="ti ti-device-mobile-off"></i> 批次重置裝置</button>
+  <button class="btn btn-sm" onclick="clearAccSelection()">取消選取</button>
+</div>
+<table class="vtable"><thead><tr>
+  <th style="width:32px"><input type="checkbox" id="acc-chk-all" onclick="toggleAllAcc(this)" style="cursor:pointer" title="全選"></th>
+  <th>帳號</th><th>姓名</th><th>車站</th><th>層級</th><th>密碼</th><th>綁定 IP</th><th>狀態</th><th>操作</th>
+</tr></thead><tbody id="accounts-body"></tbody></table></div>
   <div style="font-size:13px;font-weight:500;margin-bottom:8px">權限對照表</div>
   <div class="card"><table class="perm-table"><thead><tr><th>功能</th><th><span class="badge badge-purple">S</span></th><th><span class="badge badge-blue">A</span></th><th><span class="badge badge-gray">B</span></th></tr></thead><tbody>
     <tr><td>全線事件 新增/編輯/刪除</td><td style="color:#1D9E75">✓</td><td style="color:#1D9E75">✓</td><td>—</td></tr>
@@ -715,8 +724,12 @@ function loginSuccess(prevLogin,prevIp){
   document.getElementById('last-login-ip').textContent=prevIp;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
+  /* 存 session 供重整恢復 */
+  sessionStorage.setItem('tmrt_session_user', CU.username);
+  sessionStorage.setItem('tmrt_session_dt', localStorage.getItem('tmrt_dt_'+CU.username)||'');
   applyNavRole();renderAccounts();loadHistory();loadLogs();renderEvents();renderSuspendBtn();loadSoundSettings();loadTTVersions();loadCalOvr();initTTTableEvents();setTimeout(()=>addLog('login','登入系統'),200);
-  eventFilter=CU.role==='S'?'all':'arrive';
+  /* B 級預設：本站（到站）；S/A 級：全線 */
+  eventFilter=CU.role==='B'?'arrive':(CU.role==='S'?'all':'arrive');
   eventFilterStation='all';
   buildEventFilter();
   /* 更新行事曆頁面今日版次顯示 */
@@ -728,10 +741,13 @@ function loginSuccess(prevLogin,prevIp){
 function doLogout(){if(confirm('確定登出？')){
   /* 清除所有 onSnapshot listener */
   if(typeof accUnsubscribe==='function'){accUnsubscribe();accUnsubscribe=null;}
+  if(typeof historyUnsubscribe==='function'){historyUnsubscribe();historyUnsubscribe=null;}
   if(typeof eventsUnsubscribe==='function'){eventsUnsubscribe();eventsUnsubscribe=null;}
   if(typeof ttUnsubscribe==='function'){ttUnsubscribe();ttUnsubscribe=null;}
   if(typeof calUnsubscribe==='function'){calUnsubscribe();calUnsubscribe=null;}
   if(typeof soundUnsubscribe==='function'){soundUnsubscribe();soundUnsubscribe=null;}
+  sessionStorage.removeItem('tmrt_session_user');
+  sessionStorage.removeItem('tmrt_session_dt');
   CU=null;eventsInitialized=false;knownEventIds.clear();
   LOGS=[];historyData=[];TT_VERSIONS=[];calOvr={};events=[];document.getElementById('main-screen').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('l-acc').value='';document.getElementById('l-pwd').value='';document.getElementById('l-err').textContent='';document.getElementById('l-attempt').textContent='';}}
 function uploadLogo(input){
@@ -747,6 +763,7 @@ function renderAccounts(){
   const tbody=document.getElementById('accounts-body');if(!tbody)return;
   tbody.innerHTML=ACCOUNTS.map(u=>`
     <tr>
+      <td style="width:32px"><input type="checkbox" class="acc-chk" data-id="${u.id}" data-role="${u.role}" style="cursor:pointer" onclick="updateAccBatchBar()"></td>
       <td style="font-weight:500">${u.username}</td>
       <td>${u.name}</td>
       <td>${u.station}</td>
@@ -760,6 +777,8 @@ function renderAccounts(){
         <button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A;margin-left:3px" onclick="deleteAcc('${u.id}')"><i class="ti ti-trash"></i></button>
       </td>
     </tr>`).join('');
+  /* 更新批次操作列 */
+  updateAccBatchBar();
 }
 function openAccModal(){
   document.getElementById('acc-edit-id').value='';
@@ -809,6 +828,59 @@ function deleteAcc(id){
   if(id==='a1'){showToast('無法刪除主要管理員帳號');return;}
   if(confirm('確定刪除此帳號？')){deleteAccFromDb(id);ACCOUNTS=ACCOUNTS.filter(u=>u.id!==id);renderAccounts();showToast('帳號已刪除');}
 }
+/* ── 帳號批次操作 ── */
+function getSelectedAccIds(){
+  return [...document.querySelectorAll('.acc-chk:checked')].map(el=>el.dataset.id);
+}
+function updateAccBatchBar(){
+  const ids=getSelectedAccIds();
+  const bar=document.getElementById('acc-batch-bar');
+  const cnt=document.getElementById('acc-batch-count');
+  if(bar){bar.style.display=ids.length?'flex':'none';}
+  if(cnt)cnt.textContent='已選取 '+ids.length+' 筆';
+  const allChk=document.getElementById('acc-chk-all');
+  const total=document.querySelectorAll('.acc-chk').length;
+  if(allChk)allChk.indeterminate=ids.length>0&&ids.length<total;
+  if(allChk&&ids.length===total&&total>0)allChk.checked=true;
+}
+function toggleAllAcc(cb){
+  document.querySelectorAll('.acc-chk').forEach(el=>{el.checked=cb.checked;});
+  updateAccBatchBar();
+}
+function clearAccSelection(){
+  document.querySelectorAll('.acc-chk').forEach(el=>{el.checked=false;});
+  const allChk=document.getElementById('acc-chk-all');
+  if(allChk){allChk.checked=false;allChk.indeterminate=false;}
+  updateAccBatchBar();
+}
+async function batchDeleteAcc(){
+  const ids=getSelectedAccIds();
+  if(!ids.length)return;
+  const names=ids.map(id=>{const u=ACCOUNTS.find(x=>x.id===id);return u?u.name:id;}).join('、');
+  if(!confirm('確定刪除以下帳號？
+'+names))return;
+  for(const id of ids){
+    if(id==='a1'){showToast('跳過主要管理員帳號');continue;}
+    await deleteAccFromDb(id);
+    ACCOUNTS=ACCOUNTS.filter(u=>u.id!==id);
+  }
+  renderAccounts();showToast('已刪除 '+ids.length+' 個帳號');
+}
+async function batchResetDevice(){
+  const ids=getSelectedAccIds().filter(id=>{const u=ACCOUNTS.find(x=>x.id===id);return u&&u.role!=='S';});
+  if(!ids.length){showToast('請選取非S級帳號');return;}
+  const names=ids.map(id=>{const u=ACCOUNTS.find(x=>x.id===id);return u?u.name:id;}).join('、');
+  if(!confirm('確定重置以下帳號的裝置綁定？
+'+names))return;
+  for(const id of ids){
+    const u=ACCOUNTS.find(x=>x.id===id);
+    if(!u)continue;
+    u.deviceToken='';
+    await updateAccInDb(u);
+  }
+  showToast('已重置 '+ids.length+' 個帳號的裝置綁定');
+}
+
 async function resetDevice(id){
   const u=ACCOUNTS.find(x=>x.id===id);if(!u)return;
   if(!confirm('確定重置「'+u.name+'」的裝置綁定？\n該帳號下次登入時將自動綁定新裝置。'))return;
@@ -920,12 +992,17 @@ async function deleteHistoryFromDb(id){
   try{await deleteDoc(doc(db,'history',id));}catch(e){console.error(e);}
 }
 
-async function loadHistory(){
-  try{
-    const snap=await getDocs(query(collection(db,'history'),orderBy('createdAt','desc')));
-    historyData=snap.docs.map(d=>({...d.data(),id:d.id}));
-    renderHistory();
-  }catch(e){console.error('載入歷史失敗',e);}
+let historyUnsubscribe=null;
+function loadHistory(){
+  if(historyUnsubscribe)historyUnsubscribe();
+  historyUnsubscribe=onSnapshot(
+    query(collection(db,'history'),orderBy('createdAt','desc')),
+    snap=>{
+      historyData=snap.docs.map(d=>({...d.data(),id:d.id}));
+      renderHistory();
+    },
+    e=>console.error('歷史查詢監聽失敗',e)
+  );
 }
 function renderHistory(){
   const tbody=document.getElementById('history-body');if(!tbody)return;
@@ -1242,8 +1319,37 @@ function renderEvents(){
     const msArr=arrT-new Date();
     const clsArr=cdCls(msArr);
     const ccArr=clsArr==='danger'?'danger':clsArr==='warn'?'warn':'normal';
-    const departInfo='<div style="font-size:10px;color:var(--color-text-secondary);margin-top:3px">起站 '+SN[ev.from]+' '+fmt(ev.departTime)+' 發車</div>'+(ev.arrivalTimeStr?'<div style="font-size:10px;color:#1D9E75;font-weight:500">迄站 '+SN[ev.to]+' '+(ev.arrivalTimeStr)+' 到站</div>':'');
-    return'<div class="event-card '+ccArr+'" id="card-'+ev.id+'"><div class="event-info"><div class="event-route">'+ev.from+' '+SN[ev.from]+' → '+ev.to+' '+SN[ev.to]+' <span style="color:var(--color-text-secondary);font-weight:400;font-size:11px">'+(ev.dir==='down'?'↓ 下行':'↑ 上行')+'</span></div><div class="event-tags"><span class="tag '+(TC[ev.type]||'tag-gray')+'">'+ev.type+'</span><span class="tag tag-gray">車組 '+(ev.trainGroup||'—')+'</span><span class="tag tag-gray">'+ev.gate+'</span><span class="tag tag-gray">'+ev.gender+'</span></div>'+(ev.note?'<div class="event-note"><i class="ti ti-note" style="font-size:11px"></i> '+ev.note+'</div>':'')+'<div class="event-actions"><button class="btn btn-sm" data-id="'+ev.id+'" onclick="openEditModal(this.dataset.id)"><i class="ti ti-edit"></i> 編輯</button><button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A" data-id="'+ev.id+'" onclick="delEvent(this.dataset.id)"><i class="ti ti-trash"></i> 刪除</button></div><div class="event-meta">建立者：'+ev.createdBy+' · '+ev.station+'</div></div><div class="countdown-box"><div class="countdown-num '+clsArr+'" id="cd-'+ev.id+'">'+fmtCd(msArr)+'</div><div class="countdown-label">到站倒數</div>'+departInfo+'</div></div>';}).join('');
+    const departInfo='<div style="font-size:10px;color:var(--color-text-secondary);margin-top:3px">起站 '+SN[ev.from]+' '+fmt(ev.departTime)+' 發車</div>'+(ev.arrivalTimeStr?'<div style="font-size:10px;color:#1D9E75;font-weight:500">迄站 '+SN[ev.to]+' '+(ev.arrivalTimeStr)+' 發車</div>':'');
+    return(
+  '<div class="event-card '+ccArr+'" id="card-'+ev.id+'" style="display:grid;grid-template-columns:1fr 160px;align-items:center;gap:12px">'+
+  '<div class="event-info" style="min-width:0">'+
+    '<div class="event-route" style="font-size:14px;font-weight:600;margin-bottom:5px">'+
+      ev.from+' '+SN[ev.from]+' → '+ev.to+' '+SN[ev.to]+
+      ' <span style="color:var(--color-text-secondary);font-weight:400;font-size:11px">'+(ev.dir==='down'?'↓ 下行':'↑ 上行')+'</span>'+
+    '</div>'+
+    '<div class="event-tags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px">'+
+      '<span class="tag '+(TC[ev.type]||'tag-gray')+'">'+ev.type+'</span>'+
+      '<span class="tag tag-gray">車組 '+(ev.trainGroup||'—')+'</span>'+
+      '<span class="tag tag-gray">'+ev.gate+'</span>'+
+      '<span class="tag tag-gray">'+ev.gender+'</span>'+
+    '</div>'+
+    (ev.note?'<div class="event-note" style="margin-bottom:4px"><i class="ti ti-note" style="font-size:11px"></i> '+ev.note+'</div>':'')+
+    '<div style="display:flex;gap:8px;align-items:center;margin-top:4px">'+
+      '<button class="btn btn-sm" data-id="'+ev.id+'" onclick="openEditModal(this.dataset.id)"><i class="ti ti-edit"></i> 編輯</button>'+
+      '<button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A" data-id="'+ev.id+'" onclick="delEvent(this.dataset.id)"><i class="ti ti-trash"></i> 刪除</button>'+
+      '<span style="font-size:10px;color:var(--color-text-tertiary)">建立者：'+ev.createdBy+'</span>'+
+    '</div>'+
+  '</div>'+
+  '<div class="countdown-box" style="text-align:center;flex-shrink:0">'+
+    '<div class="countdown-num '+clsArr+'" id="cd-'+ev.id+'">'+fmtCd(msArr)+'</div>'+
+    '<div class="countdown-label">迄站發車倒數</div>'+
+    '<div style="margin-top:6px;text-align:left;font-size:10px;line-height:1.8">'+
+      '<div style="color:var(--color-text-secondary)">起站 '+SN[ev.from]+'　<span style="font-family:monospace">'+fmt(ev.departTime)+'</span> 發車</div>'+
+      (ev.arrivalTimeStr?'<div style="color:#1D9E75;font-weight:500">迄站 '+SN[ev.to]+'　<span style="font-family:monospace">'+ev.arrivalTimeStr+'</span> 發車</div>':'<div style="color:var(--color-text-tertiary)">迄站時間計算中</div>')+
+    '</div>'+
+  '</div>'+
+'</div>'
+);}).join('');
 }
 function delEvent(id){if(confirm('確定刪除？')){deleteEventFromDb(id);addLog('delete','刪除事件 '+id);}}
 function aInfo(ev){return'<div class="alert-info"><div class="alert-info-row"><span class="alert-info-label">路線</span><span class="alert-info-val">'+ev.from+' '+SN[ev.from]+' → '+ev.to+' '+SN[ev.to]+'</span></div><div class="alert-info-row"><span class="alert-info-label">方向</span><span class="alert-info-val">'+(ev.dir==='down'?'↓ 下行（往高鐵）':'↑ 上行（往北屯）')+'</span></div><div class="alert-info-row"><span class="alert-info-label">旅客類別</span><span class="alert-info-val">'+ev.type+'</span></div><div class="alert-info-row"><span class="alert-info-label">車組</span><span class="alert-info-val">'+(ev.trainGroup||'—')+'</span></div><div class="alert-info-row"><span class="alert-info-label">車門</span><span class="alert-info-val">'+ev.gate+'</span></div><div class="alert-info-row"><span class="alert-info-label">性別</span><span class="alert-info-val">'+ev.gender+'</span></div></div>';}
@@ -1862,33 +1968,50 @@ function getFilteredEvents(){
 /* ── 將所有需要 HTML inline handler 呼叫的函式暴露到 window（因為是 module script）── */
 /* ── 自動暴露所有函式到 window（module script 需要）── */
 Object.assign(window,{
-  aInfo, addEventToDb, addLog, applyNavRole, applyTT, askDeleteTT, autoDir, bindLoginEvents,
-  bip, buildEventFilter, buildNote, buildSound, calKey, calNextMonth, calPrevMonth, calcDir,
-  cdCls, clearLoginErr, clearNF, closeAlert, closeCalEdit, closeFormModal, closeMobileMenu, closeSoundReplace,
-  confirmDeleteTT, confirmSoundReplace, delEvent, deleteAcc, deleteAccFromDb, deleteEventFromDb, deleteHistory, doCalImport,
-  doLogin, doLogout, executeRestore, executeSuspend, filterLog, finishFail, finishOk, fmt,
-  fmtCd, ga, getCalEntry, getCurrentTimetable, getDefaultStation, getDefaultToStation, getFilteredEvents, getNextN,
-  getTodayTTName, getTodayTTType, handleCalImportFile, handleEditTTFile, handleNewTTFile, handleSoundUpload, initTTTableEvents, isCalDeleted,
-  isMgmtUnit, loadAccounts, loadSoundSettings, loginSuccess, makeStationSelect, needsDropdownFilter, nowStr, nowStr2,
-  onSReasonChange, onTTChange, openAccEdit, openAccModal, openCalEdit, openCalImport, openEditModal, openEditTT,
-  openFilePreview, openHistoryEdit, openMobileMenu, openModal, openNewTT, openSoundReplace, openSuspendModal, parseNote,
-  playCS, playCurrentSoundCS, playSoundPreview, refreshSoundCurrent, renderAccounts, renderCalMain, renderCalSpecialList, renderEvents,
-  renderHistory, renderLog, renderSoundReplaceList, renderSuspendBtn, renderSuspendOverlay, renderTTBanner, renderTTTable, resetDevice,
-  resetSoundCS, saveAcc, saveAccToDb, saveAllSound, saveCalEdit, saveHistoryEdit, selCalSv, selCalType,
+  aInfo, addEventToDb, addHistoryToDb, addLog, applyNavRole, applyTT, askDeleteTT, autoDir,
+  batchDeleteAcc, batchResetDevice, bindLoginEvents, bip, buildEventFilter, buildNote, buildSound, calKey,
+  calNextMonth, calPrevMonth, calcDir, cdCls, clearAccSelection, clearLoginErr, clearNF, closeAlert,
+  closeCalEdit, closeFormModal, closeMobileMenu, closeSoundReplace, confirmDeleteTT, confirmSoundReplace, delEvent, deleteAcc,
+  deleteAccFromDb, deleteEventFromDb, deleteHistory, deleteHistoryFromDb, deleteTTFromDb, doCalImport, doLogin, doLogout,
+  executeRestore, executeSuspend, filterLog, finishFail, finishOk, flushAlertQueue, fmt, fmtCd,
+  ga, getArrivalTime, getCalEntry, getCurrentTimetable, getDefaultStation, getDefaultToStation, getFilteredEvents, getNextN,
+  getSelectedAccIds, getTodayTTName, getTodayTTType, handleCalImportFile, handleEditTTFile, handleNewTTFile, handleSoundUpload, initTTTableEvents,
+  isCalDeleted, isMgmtUnit, loadAccounts, loadCalOvr, loadHistory, loadLogs, loadSoundSettings, loadTTVersions,
+  loginSuccess, makeStationSelect, needsDropdownFilter, nowStr, nowStr2, onSReasonChange, onTTChange, openAccEdit,
+  openAccModal, openCalEdit, openCalImport, openEditModal, openEditTT, openFilePreview, openHistoryEdit, openMobileMenu,
+  openModal, openNewTT, openSoundReplace, openSuspendModal, parseNote, playCS, playCurrentSoundCS, playSoundPreview,
+  queueAlert, refreshSoundCurrent, renderAccounts, renderCalMain, renderCalSpecialList, renderEvents, renderHistory, renderLog,
+  renderSoundReplaceList, renderSuspendBtn, renderSuspendOverlay, renderTTBanner, renderTTTable, resetDevice, resetSoundCS, saveAcc,
+  saveAccToDb, saveAllSound, saveCalEdit, saveCalOvrToDb, saveHistoryEdit, saveTTToDb, selCalSv, selCalType,
   selSoundPreset, setEventFilter, setSFilter, showAlert, showPage, showToast, speakArrivalNotice, speakArrivalNoticeVol,
   startEventsListener, startLock, startLoop, stopLoop, submitEditTT, submitEvent, submitFail, submitNewTT,
-  tick, todayStrTT, toggleLoginEye, togglePwd, updateAccInDb, updateCalStep2, updateEventInDb, updateLockCd,
-  updateSoundVol, updateTrains, uploadLogo
+  tick, todayStrTT, toggleAllAcc, toggleLoginEye, togglePwd, ttTimeToMin, updateAccBatchBar, updateAccInDb,
+  updateCalStep2, updateEventInDb, updateHistoryInDb, updateLockCd, updateSoundVol, updateTrains, uploadLogo
 });
 
 
 
-/* ── 啟動：載入帳號後才顯示登入頁 ── */
+/* ── 啟動：載入帳號後才顯示登入頁，並嘗試 session 恢復 ── */
 (async()=>{
   const btn=document.getElementById('l-btn');
   if(btn){btn.disabled=true;btn.textContent='載入中…';}
   await loadAccounts();
   if(btn){btn.disabled=false;btn.textContent='登入';}
+  /* 嘗試 session 恢復（頁面重整自動登入）*/
+  const savedUser=sessionStorage.getItem('tmrt_session_user');
+  if(savedUser){
+    const user=ACCOUNTS.find(u=>u.username===savedUser&&u.status==='啟用');
+    if(user){
+      const localToken=localStorage.getItem('tmrt_dt_'+user.username);
+      const tokenOk=user.role==='S'||!user.deviceToken||(localToken&&localToken===user.deviceToken);
+      if(tokenOk){
+        CU=user;
+        loginSuccess(user.lastLogin||'—',user.lastLoginIp||'—');
+        return;
+      }
+    }
+    sessionStorage.removeItem('tmrt_session_user');
+  }
 })();
 </script>
 
