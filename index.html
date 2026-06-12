@@ -1089,6 +1089,21 @@ function startEventsListener(){
     incoming.forEach(ev=>knownEventIds.add(ev.id));
     events=incoming;
     eventsInitialized=true;
+    /* 載入時：自動結案超過10分鐘的舊事件 */
+    const now=new Date();
+    incoming.forEach(ev=>{
+      if(ev.departTime&&(now-ev.departTime)>600000&&!autoCloseF.has(ev.id)){
+        autoCloseF.add(ev.id);
+        const d=ev.departTime;
+        const mm=(d.getMonth()+1).toString().padStart(2,'0');
+        const dd=d.getDate().toString().padStart(2,'0');
+        const hh=d.getHours().toString().padStart(2,'0');
+        const mi=d.getMinutes().toString().padStart(2,'0');
+        historyData.unshift({id:'h'+Date.now(),time:mm+'/'+dd+' '+hh+':'+mi,from:ev.from,to:ev.to,dir:ev.dir,type:ev.type,trainGroup:ev.trainGroup||'—',status:'超時結案',creator:ev.createdBy||'—',note:ev.note||'',reason:'發車超過10分鐘未確認，系統自動結案'});
+        deleteEventFromDb(ev.id);
+      }
+    });
+    renderHistory();
     renderEvents();
   });
 }
@@ -1107,7 +1122,7 @@ async function updateEventInDb(id,data){
 async function deleteEventFromDb(id){
   try{await deleteDoc(doc(db,'events',id));}catch(e){console.error(e);}
 }
-const wF=new Set(),dF=new Set(),doF=new Set();
+const wF=new Set(),dF=new Set(),doF=new Set(),autoCloseF=new Set();
 let bepInt=null,alertOpen=false;
 function startLoop(k){stopLoop();playCS(k);bepInt=setInterval(()=>playCS(k),k==='danger'?450:700);}
 function stopLoop(){if(bepInt){clearInterval(bepInt);bepInt=null;}}
@@ -1261,6 +1276,18 @@ function tick(){
     if(ms<=0&&!doF.has(ev.id)){
       doF.add(ev.id);
       if(isMyArrival&&!alertOpen){startLoop('success');showAlert('success','✅','列車已到站',aInfo(ev),'','<button class="btn btn-primary" data-id="'+ev.id+'" onclick="finishOk(this.dataset.id)"><i class="ti ti-check"></i> 已接到旅客</button><button class="btn" style="color:#E24B4A;border-color:#E24B4A;margin-left:8px" data-id="'+ev.id+'" onclick="finishFail(this.dataset.id)"><i class="ti ti-x"></i> 未接到旅客</button>');}
+    }
+    /* 自動結案：發車超過 10 分鐘仍未結案 → 自動寫入歷史（超時）並刪除 */
+    if(ms<-600000&&!autoCloseF.has(ev.id)){
+      autoCloseF.add(ev.id);
+      const now2=new Date();
+      const mm2=(now2.getMonth()+1).toString().padStart(2,'0');
+      const dd2=now2.getDate().toString().padStart(2,'0');
+      const hh2=now2.getHours().toString().padStart(2,'0');
+      const mi2=now2.getMinutes().toString().padStart(2,'0');
+      historyData.unshift({id:'h'+Date.now(),time:mm2+'/'+dd2+' '+hh2+':'+mi2,from:ev.from,to:ev.to,dir:ev.dir,type:ev.type,trainGroup:ev.trainGroup||'—',status:'超時結案',creator:ev.createdBy||'—',note:ev.note||'',reason:'發車超過10分鐘未確認，系統自動結案'});
+      renderHistory();
+      deleteEventFromDb(ev.id);
     }
   });
 }
