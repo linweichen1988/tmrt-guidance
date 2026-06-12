@@ -438,6 +438,7 @@ input[type=range]{flex:1;accent-color:#378ADD}
     <div class="form-row">
       <div class="form-group"><div class="form-label">起站 <span>*</span></div>
         <select id="f-from" onchange="autoDir()"><option value="G0">G0 北屯總站</option><option value="G3">G3 舊社</option><option value="G4">G4 松竹</option><option value="G5">G5 四維國小</option><option value="G6">G6 文心崇德</option><option value="G7">G7 文心中清</option><option value="G8">G8 文華高中</option><option value="G8a">G8a 文心櫻花</option><option value="G9" selected>G9 市政府</option><option value="G10">G10 水安宮</option><option value="G10a">G10a 文心森林公園</option><option value="G11">G11 南屯</option><option value="G12">G12 豐樂公園</option><option value="G13">G13 大慶</option><option value="G14">G14 九張犁</option><option value="G15">G15 九德</option><option value="G16">G16 烏日</option><option value="G17">G17 高鐵臺中站</option></select>
+        <div id="f-from-locked" style="display:none;padding:8px 12px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;color:var(--color-text-secondary)"><i class="ti ti-lock" style="font-size:12px;margin-right:4px"></i><span id="f-from-locked-label"></span></div>
       </div>
       <div class="form-group"><div class="form-label">迄站 <span>*</span></div>
         <select id="f-to" onchange="autoDir()"><option value="G0">G0 北屯總站</option><option value="G3">G3 舊社</option><option value="G4">G4 松竹</option><option value="G5">G5 四維國小</option><option value="G6">G6 文心崇德</option><option value="G7">G7 文心中清</option><option value="G8">G8 文華高中</option><option value="G8a">G8a 文心櫻花</option><option value="G9">G9 市政府</option><option value="G10">G10 水安宮</option><option value="G10a">G10a 文心森林公園</option><option value="G11">G11 南屯</option><option value="G12">G12 豐樂公園</option><option value="G13" selected>G13 大慶</option><option value="G14">G14 九張犁</option><option value="G15">G15 九德</option><option value="G16">G16 烏日</option><option value="G17">G17 高鐵臺中站</option></select>
@@ -1335,16 +1336,17 @@ function openModal(){
   const defFrom=getDefaultStation();
   document.getElementById('f-from').value=defFrom;
   document.getElementById('f-to').value=getDefaultToStation(defFrom);
-  /* B 級：起站鎖定為帳號綁定車站，不可修改 */
+  /* B 級：起站鎖定為帳號綁定車站，隱藏 select 改顯示靜態文字 */
   const fromSel=document.getElementById('f-from');
+  const fromLocked=document.getElementById('f-from-locked');
+  const fromLockedLabel=document.getElementById('f-from-locked-label');
   if(CU&&CU.role==='B'){
-    fromSel.disabled=true;
-    fromSel.style.opacity='0.6';
-    fromSel.title='B級帳號起站固定為本站';
+    fromSel.style.display='none';
+    fromLocked.style.display='';
+    fromLockedLabel.textContent=defFrom+' '+((SN&&SN[defFrom])||'');
   } else {
-    fromSel.disabled=false;
-    fromSel.style.opacity='';
-    fromSel.title='';
+    fromSel.style.display='';
+    fromLocked.style.display='none';
   }
   clearNF();autoDir();document.getElementById('modal-form').classList.add('open');
 }
