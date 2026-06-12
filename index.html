@@ -441,7 +441,7 @@ input[type=range]{flex:1;accent-color:#378ADD}
         <div id="f-from-locked" style="display:none;padding:8px 12px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;color:var(--color-text-secondary)"><i class="ti ti-lock" style="font-size:12px;margin-right:4px"></i><span id="f-from-locked-label"></span></div>
       </div>
       <div class="form-group"><div class="form-label">迄站 <span>*</span></div>
-        <select id="f-to" onchange="autoDir()"><option value="G0">G0 北屯總站</option><option value="G3">G3 舊社</option><option value="G4">G4 松竹</option><option value="G5">G5 四維國小</option><option value="G6">G6 文心崇德</option><option value="G7">G7 文心中清</option><option value="G8">G8 文華高中</option><option value="G8a">G8a 文心櫻花</option><option value="G9">G9 市政府</option><option value="G10">G10 水安宮</option><option value="G10a">G10a 文心森林公園</option><option value="G11">G11 南屯</option><option value="G12">G12 豐樂公園</option><option value="G13" selected>G13 大慶</option><option value="G14">G14 九張犁</option><option value="G15">G15 九德</option><option value="G16">G16 烏日</option><option value="G17">G17 高鐵臺中站</option></select>
+        <select id="f-to" onchange="autoDir();updateTrains()"><option value="G0">G0 北屯總站</option><option value="G3">G3 舊社</option><option value="G4">G4 松竹</option><option value="G5">G5 四維國小</option><option value="G6">G6 文心崇德</option><option value="G7">G7 文心中清</option><option value="G8">G8 文華高中</option><option value="G8a">G8a 文心櫻花</option><option value="G9">G9 市政府</option><option value="G10">G10 水安宮</option><option value="G10a">G10a 文心森林公園</option><option value="G11">G11 南屯</option><option value="G12">G12 豐樂公園</option><option value="G13" selected>G13 大慶</option><option value="G14">G14 九張犁</option><option value="G15">G15 九德</option><option value="G16">G16 烏日</option><option value="G17">G17 高鐵臺中站</option></select>
       </div>
     </div>
     <div class="form-row">
@@ -1146,7 +1146,10 @@ function startEventsListener(){
     snap.forEach(d=>{
       const data=d.data();
       const departTime=data.departTime&&data.departTime.toDate?data.departTime.toDate():new Date(data.departTime);
-      incoming.push({...data,id:d.id,departTime});
+          let arrivalTime=departTime;
+    if(data.arrivalTime&&data.arrivalTime.toDate){arrivalTime=data.arrivalTime.toDate();}
+    else if(data.arrivalTime){arrivalTime=new Date(data.arrivalTime);}
+    incoming.push({...data,id:d.id,departTime,arrivalTime});
     });
     /* 偵測新進事件（已初始化後才判斷，避免登入時全部觸發） */
     if(eventsInitialized&&CU&&CU.role!=='S'){
@@ -1163,7 +1166,7 @@ function startEventsListener(){
     /* 載入時：自動結案超過10分鐘的舊事件 */
     const now=new Date();
     incoming.forEach(ev=>{
-      if(ev.departTime&&(now-ev.departTime)>600000&&!autoCloseF.has(ev.id)){
+      if((ev.arrivalTime||ev.departTime)&&(now-(ev.arrivalTime||ev.departTime))>600000&&!autoCloseF.has(ev.id)){
         autoCloseF.add(ev.id);
         const d=ev.departTime;
         const mm=(d.getMonth()+1).toString().padStart(2,'0');
@@ -1235,7 +1238,12 @@ function parseNote(note){const lm={'人數':'f-n1','陪同者':'f-n2','上衣顏
 function renderEvents(){
   const el=document.getElementById('event-list');if(!el)return;
   const filteredEvs=getFilteredEvents();if(!filteredEvs.length){el.innerHTML='<div class="empty-state"><i class="ti ti-mood-happy"></i>目前無進行中的引導事件</div>';return;}
-  el.innerHTML=[...filteredEvs].sort((a,b)=>a.departTime-b.departTime).map(ev=>{const ms=ev.departTime-new Date(),cls=cdCls(ms),cc=cls==='danger'?'danger':cls==='warn'?'warn':'normal';return'<div class="event-card '+cc+'" id="card-'+ev.id+'"><div class="event-info"><div class="event-route">'+ev.from+' '+SN[ev.from]+' → '+ev.to+' '+SN[ev.to]+' <span style="color:var(--color-text-secondary);font-weight:400;font-size:11px">'+(ev.dir==='down'?'↓ 下行':'↑ 上行')+'</span></div><div class="event-tags"><span class="tag '+(TC[ev.type]||'tag-gray')+'">'+ev.type+'</span><span class="tag tag-gray">車組 '+(ev.trainGroup||'—')+'</span><span class="tag tag-gray">'+ev.gate+'</span><span class="tag tag-gray">'+ev.gender+'</span></div>'+(ev.note?'<div class="event-note"><i class="ti ti-note" style="font-size:11px"></i> '+ev.note+'</div>':'')+'<div class="event-actions"><button class="btn btn-sm" data-id="'+ev.id+'" onclick="openEditModal(this.dataset.id)"><i class="ti ti-edit"></i> 編輯</button><button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A" data-id="'+ev.id+'" onclick="delEvent(this.dataset.id)"><i class="ti ti-trash"></i> 刪除</button></div><div class="event-meta">建立者：'+ev.createdBy+' · '+ev.station+'</div></div><div class="countdown-box"><div class="countdown-num '+cls+'" id="cd-'+ev.id+'">'+fmtCd(ms)+'</div><div class="countdown-label">發車倒數</div><div class="countdown-depart">預定 '+fmt(ev.departTime)+' 發車</div></div></div>';}).join('');
+  el.innerHTML=[...filteredEvs].sort((a,b)=>a.departTime-b.departTime).map(ev=>{const ms=ev.departTime-new Date(),cls=cdCls(ms),cc=cls==='danger'?'danger':cls==='warn'?'warn':'normal';const arrT=ev.arrivalTime||ev.departTime;
+    const msArr=arrT-new Date();
+    const clsArr=cdCls(msArr);
+    const ccArr=clsArr==='danger'?'danger':clsArr==='warn'?'warn':'normal';
+    const departInfo='<div style="font-size:10px;color:var(--color-text-secondary);margin-top:3px">起站 '+SN[ev.from]+' '+fmt(ev.departTime)+' 發車</div>'+(ev.arrivalTimeStr?'<div style="font-size:10px;color:#1D9E75;font-weight:500">迄站 '+SN[ev.to]+' '+(ev.arrivalTimeStr)+' 到站</div>':'');
+    return'<div class="event-card '+ccArr+'" id="card-'+ev.id+'"><div class="event-info"><div class="event-route">'+ev.from+' '+SN[ev.from]+' → '+ev.to+' '+SN[ev.to]+' <span style="color:var(--color-text-secondary);font-weight:400;font-size:11px">'+(ev.dir==='down'?'↓ 下行':'↑ 上行')+'</span></div><div class="event-tags"><span class="tag '+(TC[ev.type]||'tag-gray')+'">'+ev.type+'</span><span class="tag tag-gray">車組 '+(ev.trainGroup||'—')+'</span><span class="tag tag-gray">'+ev.gate+'</span><span class="tag tag-gray">'+ev.gender+'</span></div>'+(ev.note?'<div class="event-note"><i class="ti ti-note" style="font-size:11px"></i> '+ev.note+'</div>':'')+'<div class="event-actions"><button class="btn btn-sm" data-id="'+ev.id+'" onclick="openEditModal(this.dataset.id)"><i class="ti ti-edit"></i> 編輯</button><button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A" data-id="'+ev.id+'" onclick="delEvent(this.dataset.id)"><i class="ti ti-trash"></i> 刪除</button></div><div class="event-meta">建立者：'+ev.createdBy+' · '+ev.station+'</div></div><div class="countdown-box"><div class="countdown-num '+clsArr+'" id="cd-'+ev.id+'">'+fmtCd(msArr)+'</div><div class="countdown-label">到站倒數</div>'+departInfo+'</div></div>';}).join('');
 }
 function delEvent(id){if(confirm('確定刪除？')){deleteEventFromDb(id);addLog('delete','刪除事件 '+id);}}
 function aInfo(ev){return'<div class="alert-info"><div class="alert-info-row"><span class="alert-info-label">路線</span><span class="alert-info-val">'+ev.from+' '+SN[ev.from]+' → '+ev.to+' '+SN[ev.to]+'</span></div><div class="alert-info-row"><span class="alert-info-label">方向</span><span class="alert-info-val">'+(ev.dir==='down'?'↓ 下行（往高鐵）':'↑ 上行（往北屯）')+'</span></div><div class="alert-info-row"><span class="alert-info-label">旅客類別</span><span class="alert-info-val">'+ev.type+'</span></div><div class="alert-info-row"><span class="alert-info-label">車組</span><span class="alert-info-val">'+(ev.trainGroup||'—')+'</span></div><div class="alert-info-row"><span class="alert-info-label">車門</span><span class="alert-info-val">'+ev.gate+'</span></div><div class="alert-info-row"><span class="alert-info-label">性別</span><span class="alert-info-val">'+ev.gender+'</span></div></div>';}
@@ -1298,6 +1306,24 @@ function getCurrentTimetable(dir){
   if(type==='rest') return dir==='down'?THRD:THRU;
   return dir==='down'?TD:TU;
 }
+/* ── 查詢迄站到站時間（時間差法）── */
+function getArrivalTime(fromStation,departTimeStr,toStation,dir){
+  const tbl=getCurrentTimetable(dir);
+  const fromTimes=tbl[fromStation]||[];
+  const toTimes=tbl[toStation]||[];
+  if(!fromTimes.includes(departTimeStr))return null;
+  const fMin=ttTimeToMin(departTimeStr);
+  const candidates=[];
+  for(const t of toTimes){
+    const diff=ttTimeToMin(t)-fMin;
+    if(diff>=1&&diff<=45)candidates.push([diff,t]);
+  }
+  if(!candidates.length)return null;
+  candidates.sort((a,b)=>a[0]-b[0]);
+  return candidates[0][1];
+}
+function ttTimeToMin(t){const[h,m]=t.split(':').map(Number);return(h<5?h+24:h)*60+m;}
+
 function getNextN(st,dir,n=4){
   let tbl;
   try{tbl=getCurrentTimetable(dir);}catch(e){tbl=dir==='down'?TD:TU;}
@@ -1305,7 +1331,17 @@ function getNextN(st,dir,n=4){
   for(let t of times){if(res.length>=n)break;const dt=new Date(ds+'T'+t.padStart(5,'0')+':00');if(t.startsWith('00'))dt.setDate(dt.getDate()+1);if(dt>now)res.push(dt);}
   return res;
 }
-function updateTrains(){const st=document.getElementById('f-from').value||'G9',dir=document.getElementById('f-dir').value||'down';document.getElementById('train-options').innerHTML=getNextN(st,dir,4).map((dt,i)=>'<label class="train-option '+(i===0?'selected':'')+'"><input type="radio" name="tsel" value="'+dt.toISOString()+'" '+(i===0?'checked':'')+' onchange="this.closest(\'.next-trains\').querySelectorAll(\'.train-option\').forEach(x=>x.classList.remove(\'selected\'));this.closest(\'.train-option\').classList.add(\'selected\')">'+fmt(dt)+' 發車'+(i===0?' <span style="font-size:10px;color:#0c447c">（下一班）</span>':'')+'</label>').join('');}
+function updateTrains(){
+  const st=document.getElementById('f-from').value||'G9';
+  const to=document.getElementById('f-to').value||'G13';
+  const dir=document.getElementById('f-dir').value||'down';
+  document.getElementById('train-options').innerHTML=getNextN(st,dir,4).map((dt,i)=>{
+    const departStr=dt.getHours().toString().padStart(2,'0')+':'+dt.getMinutes().toString().padStart(2,'0');
+    const arrStr=getArrivalTime(st,departStr,to,dir);
+    const arrInfo=arrStr?'<span style="font-size:10px;color:#1D9E75;margin-left:6px">→ '+SN[to]+'站 '+arrStr+' 到站</span>':'';
+    return '<label class="train-option '+(i===0?'selected':'')+'"><input type="radio" name="tsel" value="'+dt.toISOString()+'" data-depart="'+departStr+'" data-arr="'+(arrStr||'')+'" '+(i===0?'checked':'')+' onchange="this.closest(\'.next-trains\').querySelectorAll(\'.train-option\').forEach(x=>x.classList.remove(\'selected\'));this.closest(\'.train-option\').classList.add(\'selected\');">'+fmt(dt)+' 發車'+(i===0?' <span style="font-size:10px;color:#0c447c">（下一班）</span>':'')+(arrInfo?arrInfo:'')+'</label>';
+  }).join('');
+}
 function clearNF(){['f-n1','f-n2','f-n3','f-n4','f-n5'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';})}
 
 function getDefaultStation(){
@@ -1367,7 +1403,20 @@ async function submitEvent(){
   const newTo=document.getElementById('f-to').value||'G13';
   const newFrom=document.getElementById('f-from').value||'G9';
   const newType=document.getElementById('f-type').value;
-  const evData={from:newFrom,to:newTo,dir:document.getElementById('f-dir').value,trainGroup:document.getElementById('f-train').value||'',gate:document.getElementById('f-gate').value,gender:document.getElementById('f-gender').value,type:newType,note,departTime:new Date(sel.value),createdBy:CU.username,station:newFrom,stationTo:newTo,createdAt:new Date()};
+  /* 查詢迄站到站時間 */
+  const departStr=new Date(sel.value).getHours().toString().padStart(2,'0')+':'+new Date(sel.value).getMinutes().toString().padStart(2,'0');
+  const selDir=document.getElementById('f-dir').value;
+  const arrStr=getArrivalTime(newFrom,departStr,newTo,selDir);
+  /* 用迄站到站時間當倒數基準，若查不到則用起站發車時間 */
+  let arrivalTime=new Date(sel.value);
+  if(arrStr){
+    const[ah,am]=arrStr.split(':').map(Number);
+    arrivalTime=new Date(sel.value);
+    arrivalTime.setHours(ah<5?ah+24:ah,am,0,0);
+    /* 若深夜跨日（如00:xx），加一天 */
+    if(ah<5&&arrivalTime<new Date(sel.value))arrivalTime.setDate(arrivalTime.getDate()+1);
+  }
+  const evData={from:newFrom,to:newTo,dir:selDir,trainGroup:document.getElementById('f-train').value||'',gate:document.getElementById('f-gate').value,gender:document.getElementById('f-gender').value,type:newType,note,departTime:new Date(sel.value),arrivalTime:arrivalTime,departTimeStr:departStr,arrivalTimeStr:arrStr||'',createdBy:CU.username,station:newFrom,stationTo:newTo,createdAt:new Date()};
   await addEventToDb(evData);
   addLog('create','新增事件 '+newFrom+'→'+newTo+' '+newType);
   closeFormModal();
@@ -1376,7 +1425,7 @@ function tick(){
   const now=new Date();
   const cd=document.getElementById('clock-display');if(cd)cd.textContent=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
   events.forEach(ev=>{
-    const ms=ev.departTime-now,el=document.getElementById('cd-'+ev.id),card=document.getElementById('card-'+ev.id);
+    const arrT=ev.arrivalTime||ev.departTime;const ms=arrT-now,el=document.getElementById('cd-'+ev.id),card=document.getElementById('card-'+ev.id);
     if(!el)return;
     const cls=cdCls(ms);
     el.textContent=fmtCd(ms);
