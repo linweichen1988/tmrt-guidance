@@ -1679,19 +1679,28 @@ function getFilteredEvents(){
 /* ══ 手機版選單 ══ */
 
 /* ── 將所有需要 HTML inline handler 呼叫的函式暴露到 window（因為是 module script）── */
+/* ── 自動暴露所有函式到 window（module script 需要）── */
 Object.assign(window,{
-  doLogin,doLogout,clearLoginErr,toggleLoginEye,togglePwd,uploadLogo,
-  showPage,applyNavRole,openModal,closeFormModal,openAccModal,openAccEdit,saveAcc,deleteAcc,
-  autoDir,updateTrains,openHistoryEdit,saveHistoryEdit,deleteHistory,
-  filterLog,buildSound,playSoundPreview,saveAllSound,resetSoundCS,
-  applyTT,onTTChange,openSuspendModal,onSReasonChange,executeSuspend,executeRestore,
-  renderSuspendBtn,openMobileMenu,closeMobileMenu,openNewTT,submitNewTT,askDeleteTT,
-  renderTTTable,initTTTableEvents,renderCalMain,calPrevMonth,calNextMonth,
-  openFilePreview,openSoundReplace,closeSoundReplace,confirmSoundReplace,loadSoundSettings,updateSoundVol,
-  selSoundPreset,handleSoundUpload,handleNewTTFile,playCurrentSoundCS,
-  finishOk,finishFail,submitFail,delEvent,openEditModal,submitEvent,resetDevice,
-  closeAlert,confirmDeleteTT,showToast
+  aInfo, addEventToDb, addLog, applyNavRole, applyTT, askDeleteTT, autoDir, bindLoginEvents,
+  bip, buildEventFilter, buildNote, buildSound, calKey, calNextMonth, calPrevMonth, calcDir,
+  cdCls, clearLoginErr, clearNF, closeAlert, closeCalEdit, closeFormModal, closeMobileMenu, closeSoundReplace,
+  confirmDeleteTT, confirmSoundReplace, delEvent, deleteAcc, deleteAccFromDb, deleteEventFromDb, deleteHistory, doCalImport,
+  doLogin, doLogout, executeRestore, executeSuspend, filterLog, finishFail, finishOk, fmt,
+  fmtCd, ga, getCalEntry, getCurrentTimetable, getDefaultStation, getDefaultToStation, getFilteredEvents, getNextN,
+  getTodayTTName, getTodayTTType, handleCalImportFile, handleEditTTFile, handleNewTTFile, handleSoundUpload, initTTTableEvents, isCalDeleted,
+  isMgmtUnit, loadAccounts, loadSoundSettings, loginSuccess, makeStationSelect, needsDropdownFilter, nowStr, nowStr2,
+  onSReasonChange, onTTChange, openAccEdit, openAccModal, openCalEdit, openCalImport, openEditModal, openEditTT,
+  openFilePreview, openHistoryEdit, openMobileMenu, openModal, openNewTT, openSoundReplace, openSuspendModal, parseNote,
+  playCS, playCurrentSoundCS, playSoundPreview, refreshSoundCurrent, renderAccounts, renderCalMain, renderCalSpecialList, renderEvents,
+  renderHistory, renderLog, renderSoundReplaceList, renderSuspendBtn, renderSuspendOverlay, renderTTBanner, renderTTTable, resetDevice,
+  resetSoundCS, saveAcc, saveAccToDb, saveAllSound, saveCalEdit, saveHistoryEdit, selCalSv, selCalType,
+  selSoundPreset, setEventFilter, setSFilter, showAlert, showPage, showToast, speakArrivalNotice, speakArrivalNoticeVol,
+  startEventsListener, startLock, startLoop, stopLoop, submitEditTT, submitEvent, submitFail, submitNewTT,
+  tick, todayStrTT, toggleLoginEye, togglePwd, updateAccInDb, updateCalStep2, updateEventInDb, updateLockCd,
+  updateSoundVol, updateTrains, uploadLogo
 });
+
+
 
 /* ── 啟動：載入帳號後才顯示登入頁 ── */
 (async()=>{
