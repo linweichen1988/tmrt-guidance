@@ -710,7 +710,7 @@ function loginSuccess(prevLogin,prevIp){
   document.getElementById('last-login-ip').textContent=prevIp;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
-  applyNavRole();renderAccounts();renderHistory();renderLog(LOGS);renderEvents();renderTTBanner();renderSuspendBtn();loadSoundSettings();renderTTTable();initTTTableEvents();renderCalMain();setTimeout(()=>addLog('login','登入系統'),200);
+  applyNavRole();renderAccounts();loadHistory();loadLogs();renderEvents();renderSuspendBtn();loadSoundSettings();loadTTVersions();loadCalOvr();initTTTableEvents();setTimeout(()=>addLog('login','登入系統'),200);
   eventFilter=CU.role==='S'?'all':'arrive';
   eventFilterStation='all';
   buildEventFilter();
@@ -890,25 +890,57 @@ function executeRestore(){suspended=false;renderTTBanner();renderSuspendOverlay(
 
 /* ── 歷史查詢 ── */
 let historyData=[];
+
+async function addHistoryToDb(record){
+  try{
+    const d={...record};delete d.id;
+    d.createdAt=new Date();
+    await addDoc(collection(db,'history'),d);
+  }catch(e){console.error('寫入歷史失敗',e);}
+}
+
+async function updateHistoryInDb(id,data){
+  try{await updateDoc(doc(db,'history',id),data);}catch(e){console.error(e);}
+}
+
+async function deleteHistoryFromDb(id){
+  try{await deleteDoc(doc(db,'history',id));}catch(e){console.error(e);}
+}
+
+async function loadHistory(){
+  try{
+    const snap=await getDocs(query(collection(db,'history'),orderBy('createdAt','desc')));
+    historyData=snap.docs.map(d=>({...d.data(),id:d.id}));
+    renderHistory();
+  }catch(e){console.error('載入歷史失敗',e);}
+}
 function renderHistory(){
   const tbody=document.getElementById('history-body');if(!tbody)return;
   tbody.innerHTML=historyData.map(r=>`<tr><td>${r.time}</td><td>${r.from}→${r.to} ${r.dir==='down'?'下行':'上行'}</td><td><span class="badge badge-blue">${r.type}</span></td><td>${r.trainGroup}</td><td><span class="badge ${r.status==='完成'?'badge-green':'badge-red'}">${r.status}</span></td><td>${r.creator}</td><td style="font-size:11px;color:var(--color-text-secondary);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.note||'—'}</td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openHistoryEdit('${r.id}')"><i class="ti ti-edit"></i></button><button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A;margin-left:3px" onclick="deleteHistory('${r.id}')"><i class="ti ti-trash"></i></button></td></tr>`).join('');
 }
 function openHistoryEdit(id){const r=historyData.find(x=>x.id===id);if(!r)return;document.getElementById('he-id').value=id;document.getElementById('he-route-display').textContent=r.from+' '+(SN[r.from]||'')+' → '+r.to+' '+(SN[r.to]||'')+' ('+(r.dir==='down'?'下行':'上行')+') · '+r.type;document.getElementById('he-status').value=r.status;document.getElementById('he-reason').value=r.reason||'';document.getElementById('he-note').value=r.note||'';document.getElementById('he-reason-wrap').style.display=r.status==='未完成'?'flex':'none';document.getElementById('modal-history-edit').classList.add('open');}
-function saveHistoryEdit(){const id=document.getElementById('he-id').value;const r=historyData.find(x=>x.id===id);if(!r)return;r.status=document.getElementById('he-status').value;r.reason=document.getElementById('he-reason').value;r.note=document.getElementById('he-note').value;document.getElementById('modal-history-edit').classList.remove('open');renderHistory();showToast('歷史紀錄已更新');}
-function deleteHistory(id){if(confirm('確定刪除此筆歷史紀錄？')){historyData=historyData.filter(x=>x.id!==id);renderHistory();showToast('已刪除');}}
+function saveHistoryEdit(){const id=document.getElementById('he-id').value;const r=historyData.find(x=>x.id===id);if(!r)return;r.status=document.getElementById('he-status').value;r.reason=document.getElementById('he-reason').value;r.note=document.getElementById('he-note').value;updateHistoryInDb(id,{status:r.status,reason:r.reason,note:r.note});document.getElementById('modal-history-edit').classList.remove('open');renderHistory();showToast('歷史紀錄已更新');}
+function deleteHistory(id){if(confirm('確定刪除此筆歷史紀錄？')){deleteHistoryFromDb(id);historyData=historyData.filter(x=>x.id!==id);renderHistory();showToast('已刪除');}}
 
 /* ── Log ── */
 const OP_L={login:'登入',create:'新增事件',edit:'編輯事件',delete:'刪除事件',export:'匯出報表',upload:'上傳時刻表',suspend:'暫停/恢復'};
 const OP_C={login:'op-login',create:'op-create',edit:'op-edit',delete:'op-delete',export:'op-export',upload:'op-upload',suspend:'op-suspend'};
 let LOGS=[];
-function addLog(op,desc){
+function nowStr2(){const n=new Date();return n.getFullYear()+'/'+(n.getMonth()+1).toString().padStart(2,'0')+'/'+n.getDate().toString().padStart(2,'0')+' '+n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0')+':'+n.getSeconds().toString().padStart(2,'0');}
+async function addLog(op,desc){
   if(!CU)return;
-  const entry={time:nowStr2(),acc:CU.username,name:CU.name,role:CU.role,op,desc,ip:CU.ip||'—',ok:true};
+  const entry={time:nowStr2(),acc:CU.username,name:CU.name,role:CU.role,op,desc,ip:CU.ip||'—',ok:true,createdAt:new Date()};
+  try{await addDoc(collection(db,'logs'),entry);}catch(e){console.error('寫入Log失敗',e);}
   LOGS.unshift(entry);
   renderLog(LOGS);
 }
-function nowStr2(){const n=new Date();return n.getFullYear()+'/'+(n.getMonth()+1).toString().padStart(2,'0')+'/'+n.getDate().toString().padStart(2,'0')+' '+n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0')+':'+n.getSeconds().toString().padStart(2,'0');}
+async function loadLogs(){
+  try{
+    const snap=await getDocs(query(collection(db,'logs'),orderBy('createdAt','desc')));
+    LOGS=snap.docs.map(d=>({...d.data(),id:d.id}));
+    renderLog(LOGS);
+  }catch(e){console.error('載入Log失敗',e);}
+}
 function renderLog(data){const rb={S:'badge-purple',A:'badge-blue',B:'badge-gray'};document.getElementById('log-body').innerHTML=data.map(r=>`<tr><td style="font-size:11px;white-space:nowrap;font-family:monospace">${r.time}</td><td style="font-size:11px;font-weight:500">${r.acc}</td><td>${r.name}</td><td><span class="badge ${rb[r.role]||'badge-gray'}">${r.role}</span></td><td><span class="log-op-badge ${r.ok?OP_C[r.op]:'op-fail'}">${OP_L[r.op]||r.op}</span></td><td style="font-size:11px;color:var(--color-text-secondary)">${r.desc}</td><td style="font-size:11px;font-family:monospace">${r.ip}</td><td style="${r.ok?'color:#1D9E75':'color:#E24B4A'};font-size:13px">${r.ok?'✓':'✗'}</td></tr>`).join('');document.getElementById('log-count').textContent='共 '+data.length+' 筆記錄';}
 function filterLog(){const op=document.getElementById('lf-op').value,role=document.getElementById('lf-role').value;renderLog(LOGS.filter(r=>(!op||r.op===op)&&(!role||r.role===role)));}
 
@@ -1125,7 +1157,7 @@ function startEventsListener(){
         const dd=d.getDate().toString().padStart(2,'0');
         const hh=d.getHours().toString().padStart(2,'0');
         const mi=d.getMinutes().toString().padStart(2,'0');
-        historyData.unshift({id:'h'+Date.now(),time:mm+'/'+dd+' '+hh+':'+mi,from:ev.from,to:ev.to,dir:ev.dir,type:ev.type,trainGroup:ev.trainGroup||'—',status:'超時結案',creator:ev.createdBy||'—',note:ev.note||'',reason:'發車超過10分鐘未確認，系統自動結案'});
+        addHistoryToDb({time:mm+'/'+dd+' '+hh+':'+mi,from:ev.from,to:ev.to,dir:ev.dir,type:ev.type,trainGroup:ev.trainGroup||'—',status:'超時結案',creator:ev.createdBy||'—',note:ev.note||'',reason:'發車超過10分鐘未確認，系統自動結案'});
         deleteEventFromDb(ev.id);
       }
     });
@@ -1192,10 +1224,11 @@ function finishOk(id){
     const dd=now.getDate().toString().padStart(2,'0');
     const hh=now.getHours().toString().padStart(2,'0');
     const mi=now.getMinutes().toString().padStart(2,'0');
-    historyData.unshift({id:'h'+Date.now(),time:mm+'/'+dd+' '+hh+':'+mi,from:ev.from,to:ev.to,dir:ev.dir,type:ev.type,trainGroup:ev.trainGroup||'—',status:'完成',creator:ev.createdBy||'—',note:ev.note||'',reason:''});
+    const rec={time:mm+'/'+dd+' '+hh+':'+mi,from:ev.from,to:ev.to,dir:ev.dir,type:ev.type,trainGroup:ev.trainGroup||'—',status:'完成',creator:ev.createdBy||'—',note:ev.note||'',reason:''};
+    addHistoryToDb(rec);
     addLog('edit','事件結案（完成）'+ev.from+'→'+ev.to+' '+ev.type);
-    renderHistory();
     deleteEventFromDb(id);
+    setTimeout(loadHistory,1000);
   }
   closeAlert();
 }
@@ -1209,10 +1242,11 @@ function submitFail(id){
     const dd=now.getDate().toString().padStart(2,'0');
     const hh=now.getHours().toString().padStart(2,'0');
     const mi=now.getMinutes().toString().padStart(2,'0');
-    historyData.unshift({id:'h'+Date.now(),time:mm+'/'+dd+' '+hh+':'+mi,from:ev.from,to:ev.to,dir:ev.dir,type:ev.type,trainGroup:ev.trainGroup||'—',status:'未完成',creator:ev.createdBy||'—',note:ev.note||'',reason:reason});
+    const rec={time:mm+'/'+dd+' '+hh+':'+mi,from:ev.from,to:ev.to,dir:ev.dir,type:ev.type,trainGroup:ev.trainGroup||'—',status:'未完成',creator:ev.createdBy||'—',note:ev.note||'',reason:reason};
+    addHistoryToDb(rec);
     addLog('edit','事件結案（未完成）'+ev.from+'→'+ev.to+' '+ev.type);
-    renderHistory();
     deleteEventFromDb(id);
+    setTimeout(loadHistory,1000);
   }
   closeAlert();
 }
@@ -1323,22 +1357,49 @@ function tick(){
       const dd2=now2.getDate().toString().padStart(2,'0');
       const hh2=now2.getHours().toString().padStart(2,'0');
       const mi2=now2.getMinutes().toString().padStart(2,'0');
-      historyData.unshift({id:'h'+Date.now(),time:mm2+'/'+dd2+' '+hh2+':'+mi2,from:ev.from,to:ev.to,dir:ev.dir,type:ev.type,trainGroup:ev.trainGroup||'—',status:'超時結案',creator:ev.createdBy||'—',note:ev.note||'',reason:'發車超過10分鐘未確認，系統自動結案'});
-      renderHistory();
+      addHistoryToDb({time:mm2+'/'+dd2+' '+hh2+':'+mi2,from:ev.from,to:ev.to,dir:ev.dir,type:ev.type,trainGroup:ev.trainGroup||'—',status:'超時結案',creator:ev.createdBy||'—',note:ev.note||'',reason:'發車超過10分鐘未確認，系統自動結案'});
       deleteEventFromDb(ev.id);
+      setTimeout(loadHistory,1000);
     }
   });
 }
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 
 /* ══ 時刻表版次管理 JS ══ */
-let TT_VERSIONS=[
-  {id:'v1',name:'W05_06_09R_UP',type:'常態－平日',file:'平日尖峰6分鐘離峰9分鐘深夜20分鐘_W05_06_09R_UP.pdf',uploadDate:'2026/01/10',uploader:'系統管理員',start:'2026/01/10',end:'',status:'啟用中',note:''},
-  {id:'v2',name:'H05_0730_08_10R',type:'常態－假期首日',file:'假期首日尖峰7.5分_H05_0730_08_10R.pdf',uploadDate:'2026/01/10',uploader:'系統管理員',start:'2026/01/10',end:'',status:'啟用中',note:''},
-  {id:'v3',name:'H05_0930_10R',type:'常態－假期其餘日',file:'假期其餘日離峰9.5分_H05_0930_10R.pdf',uploadDate:'2026/01/10',uploader:'系統管理員',start:'2026/01/10',end:'',status:'啟用中',note:''},
-  {id:'v4',name:'MARATHON_20260315',type:'特殊',file:'馬拉松特殊時刻表_20260315.pdf',uploadDate:'2026/02/26',uploader:'楊貿勛',start:'2026/03/15',end:'2026/03/15',status:'已停用',note:'2026臺中城市半程馬拉松'},
-];
-let nextVid=5,pendingDelVid=null,newTTFile=null,editTTFile=null;
+let TT_VERSIONS=[];
+let pendingDelVid=null,newTTFile=null,editTTFile=null;
+
+async function loadTTVersions(){
+  try{
+    const snap=await getDocs(query(collection(db,'ttVersions'),orderBy('uploadDate','desc')));
+    if(snap.empty){
+      /* 第一次：寫入預設版本 */
+      const defaults=[
+        {name:'W05_06_09R_UP',type:'常態－平日',file:'平日尖峰6分鐘離峰9分鐘深夜20分鐘_W05_06_09R_UP.pdf',uploadDate:'2026/01/10',uploader:'系統管理員',start:'2026/01/10',end:'',status:'啟用中',note:'',createdAt:new Date()},
+        {name:'H05_0730_08_10R',type:'常態－假期首日',file:'假期首日尖峰7.5分_H05_0730_08_10R.pdf',uploadDate:'2026/01/10',uploader:'系統管理員',start:'2026/01/10',end:'',status:'啟用中',note:'',createdAt:new Date()},
+        {name:'H05_0930_10R',type:'常態－假期其餘日',file:'假期其餘日離峰9.5分_H05_0930_10R.pdf',uploadDate:'2026/01/10',uploader:'系統管理員',start:'2026/01/10',end:'',status:'啟用中',note:'',createdAt:new Date()},
+        {name:'MARATHON_20260315',type:'特殊',file:'馬拉松特殊時刻表_20260315.pdf',uploadDate:'2026/02/26',uploader:'楊貿勛',start:'2026/03/15',end:'2026/03/15',status:'已停用',note:'2026臺中城市半程馬拉松',createdAt:new Date()},
+      ];
+      for(const d of defaults){const ref=await addDoc(collection(db,'ttVersions'),d);TT_VERSIONS.push({...d,id:ref.id});}
+    } else {
+      TT_VERSIONS=snap.docs.map(d=>({...d.data(),id:d.id}));
+    }
+    renderTTTable();
+    renderTTBanner();
+  }catch(e){console.error('載入時刻表失敗',e);}
+}
+
+async function saveTTToDb(tt){
+  const d={...tt};delete d.id;
+  try{
+    if(tt.id){await updateDoc(doc(db,'ttVersions',tt.id),d);}
+    else{const ref=await addDoc(collection(db,'ttVersions',),d);tt.id=ref.id;}
+  }catch(e){console.error('儲存時刻表失敗',e);}
+}
+
+async function deleteTTFromDb(id){
+  try{await deleteDoc(doc(db,'ttVersions',id));}catch(e){console.error(e);}
+}
 const TT_TYPE_BADGE={'常態－平日':'badge-green','常態－假期首日':'badge-amber','常態－假期其餘日':'badge-blue','特殊':'badge-gray'};
 function todayStrTT(){const n=new Date();return n.getFullYear()+'/'+(n.getMonth()+1).toString().padStart(2,'0')+'/'+n.getDate().toString().padStart(2,'0');}
 function renderTTTable(){
@@ -1401,7 +1462,7 @@ function handleNewTTFile(input){
   const file=input.files[0];if(!file)return;newTTFile=file;
   const el=document.getElementById('new-tt-file-info');if(el){el.style.display='flex';el.innerHTML='<i class="ti ti-check" style="color:#1D9E75"></i>'+file.name+' ('+Math.round(file.size/1024)+' KB)';}
 }
-function submitNewTT(){
+async function submitNewTT(){
   const nameEl=document.getElementById('new-tt-name');const name=(nameEl?nameEl.value:'').trim();
   if(!name){showToast('請填寫版本名稱');return;}
   if(!newTTFile){showToast('請選擇上傳檔案');return;}
@@ -1409,9 +1470,11 @@ function submitNewTT(){
   const ts=document.getElementById('new-tt-type');const ss=document.getElementById('new-tt-status');
   const sd=document.getElementById('new-tt-start');const ed=document.getElementById('new-tt-end');
   const nt=document.getElementById('new-tt-note');
-  TT_VERSIONS.push({id:'v'+nextVid++,name,type:ts?ts.value:'常態－平日',file:newTTFile.name,uploadDate:todayStrTT(),uploader:CUn,start:(sd?sd.value:'').replace(/-/g,'/'),end:(ed?ed.value:'').replace(/-/g,'/'),status:ss?ss.value:'啟用中',note:nt?nt.value:''});
+  const newTT={name,type:ts?ts.value:'常態－平日',file:newTTFile.name,uploadDate:todayStrTT(),uploader:CUn,start:(sd?sd.value:'').replace(/-/g,'/'),end:(ed?ed.value:'').replace(/-/g,'/'),status:ss?ss.value:'啟用中',note:nt?nt.value:'',createdAt:new Date()};
+  const ref=await addDoc(collection(db,'ttVersions'),newTT);
+  TT_VERSIONS.push({...newTT,id:ref.id});
   const mb=document.getElementById('modal-new-tt');if(mb)mb.classList.remove('open');
-  renderTTTable();showToast('版本已上傳');
+  renderTTTable();renderTTBanner();showToast('版本已上傳');addLog('create','新增時刻表版本：'+name);
 }
 function openEditTT(id){
   const v=TT_VERSIONS.find(x=>x.id===id);if(!v)return;
@@ -1432,7 +1495,7 @@ function handleEditTTFile(input){
   const el=document.getElementById('edit-tt-file-info');if(el){el.style.display='flex';el.innerHTML='<i class="ti ti-check" style="color:#1D9E75"></i>'+file.name+' ('+Math.round(file.size/1024)+' KB)';}
   const ecf=document.getElementById('edit-tt-current-file');if(ecf)ecf.textContent=file.name+' （新檔，儲存後覆蓋）';
 }
-function submitEditTT(){
+async function submitEditTT(){
   const eid=document.getElementById('edit-tt-id');const id=eid?eid.value:'';
   const v=TT_VERSIONS.find(x=>x.id===id);if(!v)return;
   const en=document.getElementById('edit-tt-name');if(en&&en.value.trim())v.name=en.value.trim();
@@ -1442,8 +1505,9 @@ function submitEditTT(){
   const eed=document.getElementById('edit-tt-end');if(eed)v.end=eed.value.replace(/-/g,'/');
   const eno=document.getElementById('edit-tt-note');if(eno)v.note=eno.value;
   if(editTTFile){v.file=editTTFile.name;v.uploadDate=todayStrTT();v.uploader=CU?CU.name:'系統管理員';}
+  await saveTTToDb(v);
   const mb=document.getElementById('modal-edit-tt');if(mb)mb.classList.remove('open');
-  renderTTTable();showToast('版本已更新');
+  renderTTTable();renderTTBanner();showToast('版本已更新');addLog('edit','編輯時刻表版本：'+v.name);
 }
 function askDeleteTT(id){
   const v=TT_VERSIONS.find(x=>x.id===id);if(!v)return;
@@ -1455,7 +1519,9 @@ function askDeleteTT(id){
 }
 function confirmDeleteTT(){
   if(!pendingDelVid)return;
+  deleteTTFromDb(pendingDelVid);
   TT_VERSIONS=TT_VERSIONS.filter(x=>x.id!==pendingDelVid);
+  addLog('delete','刪除時刻表版本');
   pendingDelVid=null;
   const mb=document.getElementById('modal-del-tt');if(mb)mb.classList.remove('open');
   renderTTTable();showToast('版本已刪除');
@@ -1467,6 +1533,18 @@ const CAL_CSS={weekday:'background:#E6F1FB;border:0.5px solid #B5D4F4;color:#0C4
 const CAL_LABELS={weekday:'平日版',first:'假期首日版',rest:'假期其餘日版',warning:'需上傳'};
 const CAL_BADGE={weekday:'background:#E6F1FB;color:#0C447C;border:0.5px solid #B5D4F4',first:'background:#FAEEDA;color:#633806;border:0.5px solid #FAC775',rest:'background:#EAF3DE;color:#3B6D11;border:0.5px solid #C0DD97',special:'background:#EEEDFE;color:#3C3489;border:0.5px solid #AFA9EC',warning:'background:#FCEBEB;color:#791F1F;border:0.5px solid #F09595'};
 let calOvr={},calYear=2026,calMonth=6,calEditKey=null,calEditSel=null,calEditSvId=null;
+
+async function loadCalOvr(){
+  try{
+    const snap=await getDocs(collection(db,'calOverrides'));
+    calOvr={};
+    snap.docs.forEach(d=>{calOvr[d.id]={...d.data()};});
+    renderCalMain();
+  }catch(e){console.error('載入行事曆失敗',e);}
+}
+async function saveCalOvrToDb(key,val){
+  try{await setDoc(doc(db,'calOverrides',key),val);}catch(e){console.error('儲存行事曆失敗',e);}
+}
 const LOADED_YRS=[2026];
 function calKey(y,m,d){return y+'-'+m+'-'+d;}
 function getCalEntry(y,m,d){const k=calKey(y,m,d);if(calOvr[k])return calOvr[k];if(H26[k])return{type:H26[k]};const dow=new Date(y,m-1,d).getDay();if(dow===6)return{type:'first'};if(dow===0)return{type:'rest'};return{type:'weekday'};}
@@ -1534,8 +1612,11 @@ function selCalSv(svId){calEditSvId=svId;renderCalSpecialList();}
 function saveCalEdit(){
   if(!calEditKey||!calEditSel)return;
   if(calEditSel==='special'&&!calEditSvId){showToast('請選擇特殊時刻表版本');return;}
-  if(calEditSel==='special'){const sv=TT_VERSIONS.find(x=>x.id===calEditSvId);calOvr[calEditKey]={type:'special',svId:calEditSvId,svName:sv?sv.name:''};}
-  else calOvr[calEditKey]={type:calEditSel};
+  let entry;
+  if(calEditSel==='special'){const sv=TT_VERSIONS.find(x=>x.id===calEditSvId);entry={type:'special',svId:calEditSvId,svName:sv?sv.name:''};}
+  else entry={type:calEditSel};
+  calOvr[calEditKey]=entry;
+  saveCalOvrToDb(calEditKey,entry);
   closeCalEdit();renderCalMain();showToast('時刻表版次已更新');
 }
 function openCalImport(){const mb=document.getElementById('modal-cal-import');if(mb)mb.classList.add('open');}
