@@ -857,8 +857,7 @@ async function batchDeleteAcc(){
   const ids=getSelectedAccIds();
   if(!ids.length)return;
   const names=ids.map(id=>{const u=ACCOUNTS.find(x=>x.id===id);return u?u.name:id;}).join('、');
-  if(!confirm('確定刪除以下帳號？
-'+names))return;
+  if(!confirm('確定刪除以下帳號？\n'+names))return;
   for(const id of ids){
     if(id==='a1'){showToast('跳過主要管理員帳號');continue;}
     await deleteAccFromDb(id);
@@ -870,8 +869,7 @@ async function batchResetDevice(){
   const ids=getSelectedAccIds().filter(id=>{const u=ACCOUNTS.find(x=>x.id===id);return u&&u.role!=='S';});
   if(!ids.length){showToast('請選取非S級帳號');return;}
   const names=ids.map(id=>{const u=ACCOUNTS.find(x=>x.id===id);return u?u.name:id;}).join('、');
-  if(!confirm('確定重置以下帳號的裝置綁定？
-'+names))return;
+  if(!confirm('確定重置以下帳號的裝置綁定？\n'+names))return;
   for(const id of ids){
     const u=ACCOUNTS.find(x=>x.id===id);
     if(!u)continue;
