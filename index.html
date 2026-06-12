@@ -1194,6 +1194,18 @@ async function deleteEventFromDb(id){
 }
 const wF=new Set(),dF=new Set(),doF=new Set(),autoCloseF=new Set();
 let bepInt=null,alertOpen=false;
+/* ── 彈窗排隊機制 ── */
+const alertQueue=[];
+function queueAlert(type,icon,title,info,extra,btns,soundKey){
+  alertQueue.push({type,icon,title,info,extra,btns,soundKey});
+  if(!alertOpen)flushAlertQueue();
+}
+function flushAlertQueue(){
+  if(!alertQueue.length){alertOpen=false;stopLoop();return;}
+  const next=alertQueue.shift();
+  startLoop(next.soundKey);
+  showAlert(next.type,next.icon,next.title,next.info,next.extra,next.btns);
+}
 function startLoop(k){stopLoop();playCS(k);bepInt=setInterval(()=>playCS(k),k==='danger'?450:700);}
 function stopLoop(){if(bepInt){clearInterval(bepInt);bepInt=null;}}
 function playCS(k){
@@ -1227,7 +1239,7 @@ function renderEvents(){
 function delEvent(id){if(confirm('確定刪除？')){deleteEventFromDb(id);addLog('delete','刪除事件 '+id);}}
 function aInfo(ev){return'<div class="alert-info"><div class="alert-info-row"><span class="alert-info-label">路線</span><span class="alert-info-val">'+ev.from+' '+SN[ev.from]+' → '+ev.to+' '+SN[ev.to]+'</span></div><div class="alert-info-row"><span class="alert-info-label">方向</span><span class="alert-info-val">'+(ev.dir==='down'?'↓ 下行（往高鐵）':'↑ 上行（往北屯）')+'</span></div><div class="alert-info-row"><span class="alert-info-label">旅客類別</span><span class="alert-info-val">'+ev.type+'</span></div><div class="alert-info-row"><span class="alert-info-label">車組</span><span class="alert-info-val">'+(ev.trainGroup||'—')+'</span></div><div class="alert-info-row"><span class="alert-info-label">車門</span><span class="alert-info-val">'+ev.gate+'</span></div><div class="alert-info-row"><span class="alert-info-label">性別</span><span class="alert-info-val">'+ev.gender+'</span></div></div>';}
 function showAlert(type,icon,title,info,extra,btns){alertOpen=true;document.getElementById('alert-box').className='alert-box '+type;document.getElementById('a-icon').textContent=icon;document.getElementById('a-title').textContent=title;document.getElementById('a-info').innerHTML=info;document.getElementById('a-extra').innerHTML=extra||'';document.getElementById('a-btns').innerHTML=btns;document.getElementById('alert-bg').classList.add('open');}
-function closeAlert(){alertOpen=false;stopLoop();document.getElementById('alert-bg').classList.remove('open');}
+function closeAlert(){document.getElementById('alert-bg').classList.remove('open');stopLoop();alertOpen=false;setTimeout(flushAlertQueue,300);}
 function finishOk(id){
   const ev=events.find(e=>e.id===id);
   if(ev){
@@ -1314,7 +1326,28 @@ function getDefaultToStation(from){
   return toIdx===idx?order[Math.max(0,idx-3)]:order[toIdx];
 }
 
-function openModal(){if(suspended){showToast('系統暫停使用中，無法新增事件');return;}document.getElementById('f-edit-id').value='';document.getElementById('mf-title').textContent='新增引導事件';document.getElementById('mf-submit').textContent='建立事件';document.getElementById('train-sel-wrap').style.display='';const defFrom=getDefaultStation();document.getElementById('f-from').value=defFrom;document.getElementById('f-to').value=defFrom;clearNF();autoDir();document.getElementById('modal-form').classList.add('open');}
+function openModal(){
+  if(suspended){showToast('系統暫停使用中，無法新增事件');return;}
+  document.getElementById('f-edit-id').value='';
+  document.getElementById('mf-title').textContent='新增引導事件';
+  document.getElementById('mf-submit').textContent='建立事件';
+  document.getElementById('train-sel-wrap').style.display='';
+  const defFrom=getDefaultStation();
+  document.getElementById('f-from').value=defFrom;
+  document.getElementById('f-to').value=getDefaultToStation(defFrom);
+  /* B 級：起站鎖定為帳號綁定車站，不可修改 */
+  const fromSel=document.getElementById('f-from');
+  if(CU&&CU.role==='B'){
+    fromSel.disabled=true;
+    fromSel.style.opacity='0.6';
+    fromSel.title='B級帳號起站固定為本站';
+  } else {
+    fromSel.disabled=false;
+    fromSel.style.opacity='';
+    fromSel.title='';
+  }
+  clearNF();autoDir();document.getElementById('modal-form').classList.add('open');
+}
 function openEditModal(id){const ev=events.find(e=>e.id===id);if(!ev)return;document.getElementById('f-edit-id').value=id;document.getElementById('mf-title').textContent='編輯引導事件';document.getElementById('mf-submit').textContent='儲存變更';document.getElementById('train-sel-wrap').style.display='none';document.getElementById('f-from').value=ev.from;document.getElementById('f-to').value=ev.to;document.getElementById('f-dir').value=ev.dir;document.getElementById('dir-display').textContent=ev.dir==='down'?'↓ 下行（往高鐵臺中站）':'↑ 上行（往北屯總站）';document.getElementById('f-train').value=ev.trainGroup||'';document.getElementById('f-type').value=ev.type;document.getElementById('f-gate').value=ev.gate;document.getElementById('f-gender').value=ev.gender;parseNote(ev.note||'');document.getElementById('modal-form').classList.add('open');}
 function closeFormModal(){document.getElementById('modal-form').classList.remove('open');}
 async function submitEvent(){
@@ -1351,15 +1384,15 @@ function tick(){
     const isMyArrival=CU&&CU.role!=='S'&&ev.to===CU.station;
     if(ms<=180000&&ms>60000&&!wF.has(ev.id)){
       wF.add(ev.id);
-      if(isMyArrival){if(!alertOpen){startLoop('warn');showAlert('warn','⚠️','準備就緒提醒　距發車約 3 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，已派員至指定地點</button>');}}
+      if(isMyArrival){queueAlert('warn','⚠️','準備就緒提醒　距發車約 3 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，已派員至指定地點</button>','warn');}
     }
     if(ms<=60000&&ms>0&&!dF.has(ev.id)){
       dF.add(ev.id);
-      if(isMyArrival){if(!alertOpen){startLoop('danger');showAlert('danger','🚨','緊急確認　距發車不到 1 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，人員已在月台等候</button>');}}
+      if(isMyArrival){queueAlert('danger','🚨','緊急確認　距發車不到 1 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，人員已在月台等候</button>','danger');}
     }
     if(ms<=0&&!doF.has(ev.id)){
       doF.add(ev.id);
-      if(isMyArrival){if(!alertOpen){startLoop('success');showAlert('success','✅','列車已到站',aInfo(ev),'','<button class="btn btn-primary" data-id="'+ev.id+'" onclick="finishOk(this.dataset.id)"><i class="ti ti-check"></i> 已接到旅客</button><button class="btn" style="color:#E24B4A;border-color:#E24B4A;margin-left:8px" data-id="'+ev.id+'" onclick="finishFail(this.dataset.id)"><i class="ti ti-x"></i> 未接到旅客</button>');}}
+      if(isMyArrival){queueAlert('success','✅','列車已到站',aInfo(ev),'','<button class="btn btn-primary" data-id="'+ev.id+'" onclick="finishOk(this.dataset.id)"><i class="ti ti-check"></i> 已接到旅客</button><button class="btn" style="color:#E24B4A;border-color:#E24B4A;margin-left:8px" data-id="'+ev.id+'" onclick="finishFail(this.dataset.id)"><i class="ti ti-x"></i> 未接到旅客</button>','success');}
     }
     /* 自動結案：發車超過 10 分鐘仍未結案 → 自動寫入歷史（超時）並刪除 */
     if(ms<-600000&&!autoCloseF.has(ev.id)){
