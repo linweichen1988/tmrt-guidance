@@ -296,13 +296,13 @@ input[type=range]{flex:1;accent-color:#378ADD}
     <div class="nav-section">主要功能</div>
     <div class="nav-item active" data-page="events" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-users"></i>即時引導事件</div>
     <div class="nav-item" data-page="history" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-history"></i>歷史查詢</div>
-    <div class="nav-section">管理</div>
-    <div class="nav-item" data-page="timetable" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-calendar"></i>時刻表版次</div>
-    <div class="nav-item" data-page="calendar" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-calendar-event"></i>行事曆管理</div>
-    <div class="nav-item" data-page="accounts" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-shield"></i>權限管理</div>
-    <div class="nav-item" data-page="report" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-file-analytics"></i>匯出報表</div>
-    <div class="nav-item" data-page="log" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-clipboard-list"></i>操作記錄</div>
-    <div class="nav-item" data-page="sound" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-volume"></i>音效設定</div>
+    <div class="nav-section" data-min-role="A" style="display:none">管理</div>
+    <div class="nav-item" data-page="timetable" data-min-role="A" style="display:none" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-calendar"></i>時刻表版次</div>
+    <div class="nav-item" data-page="calendar" data-min-role="A" style="display:none" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-calendar-event"></i>行事曆管理</div>
+    <div class="nav-item" data-page="accounts" data-min-role="S" style="display:none" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-shield"></i>權限管理</div>
+    <div class="nav-item" data-page="report" data-min-role="S" style="display:none" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-file-analytics"></i>匯出報表</div>
+    <div class="nav-item" data-page="log" data-min-role="A" style="display:none" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-clipboard-list"></i>操作記錄</div>
+    <div class="nav-item" data-page="sound" data-min-role="A" style="display:none" onclick="showPage(this);closeMobileMenu()"><i class="ti ti-volume"></i>音效設定</div>
   </div>
   <div class="logout-btn" onclick="doLogout()"><i class="ti ti-logout" style="font-size:15px"></i>登出</div>
 </nav>
@@ -710,7 +710,7 @@ function loginSuccess(prevLogin,prevIp){
   document.getElementById('last-login-ip').textContent=prevIp;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
-  renderAccounts();renderHistory();renderLog(LOGS);renderEvents();renderTTBanner();renderSuspendBtn();loadSoundSettings();renderTTTable();initTTTableEvents();renderCalMain();setTimeout(()=>addLog('login','登入系統'),200);
+  applyNavRole();renderAccounts();renderHistory();renderLog(LOGS);renderEvents();renderTTBanner();renderSuspendBtn();loadSoundSettings();renderTTTable();initTTTableEvents();renderCalMain();setTimeout(()=>addLog('login','登入系統'),200);
   eventFilter=CU.role==='S'?'all':'arrive';
   eventFilterStation='all';
   buildEventFilter();
@@ -1216,6 +1216,18 @@ function submitFail(id){
   }
   closeAlert();
 }
+/* ── 側欄權限控制 ── */
+function applyNavRole(){
+  if(!CU)return;
+  const roleOrder={S:3,A:2,B:1};
+  const myLevel=roleOrder[CU.role]||1;
+  document.querySelectorAll('[data-min-role]').forEach(el=>{
+    const need=roleOrder[el.getAttribute('data-min-role')]||1;
+    el.style.display=myLevel>=need?'':'none';
+  });
+  /* B級：新增事件按鈕只有本站（已存在邏輯），此處不另外處理 */
+}
+
 function showPage(el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+el.dataset.page).classList.add('active');el.classList.add('active');}
 function getCurrentTimetable(dir){
   /* 根據當前時刻表模式選擇正確資料 */
@@ -1293,15 +1305,15 @@ function tick(){
     const isMyArrival=CU&&CU.role!=='S'&&ev.to===CU.station;
     if(ms<=180000&&ms>60000&&!wF.has(ev.id)){
       wF.add(ev.id);
-      if(isMyArrival&&!alertOpen){startLoop('warn');showAlert('warn','⚠️','準備就緒提醒　距發車約 3 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，已派員至指定地點</button>');}
+      if(isMyArrival){if(!alertOpen){startLoop('warn');showAlert('warn','⚠️','準備就緒提醒　距發車約 3 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，已派員至指定地點</button>');}}
     }
     if(ms<=60000&&ms>0&&!dF.has(ev.id)){
       dF.add(ev.id);
-      if(isMyArrival&&!alertOpen){startLoop('danger');showAlert('danger','🚨','緊急確認　距發車不到 1 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，人員已在月台等候</button>');}
+      if(isMyArrival){if(!alertOpen){startLoop('danger');showAlert('danger','🚨','緊急確認　距發車不到 1 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，人員已在月台等候</button>');}}
     }
     if(ms<=0&&!doF.has(ev.id)){
       doF.add(ev.id);
-      if(isMyArrival&&!alertOpen){startLoop('success');showAlert('success','✅','列車已到站',aInfo(ev),'','<button class="btn btn-primary" data-id="'+ev.id+'" onclick="finishOk(this.dataset.id)"><i class="ti ti-check"></i> 已接到旅客</button><button class="btn" style="color:#E24B4A;border-color:#E24B4A;margin-left:8px" data-id="'+ev.id+'" onclick="finishFail(this.dataset.id)"><i class="ti ti-x"></i> 未接到旅客</button>');}
+      if(isMyArrival){if(!alertOpen){startLoop('success');showAlert('success','✅','列車已到站',aInfo(ev),'','<button class="btn btn-primary" data-id="'+ev.id+'" onclick="finishOk(this.dataset.id)"><i class="ti ti-check"></i> 已接到旅客</button><button class="btn" style="color:#E24B4A;border-color:#E24B4A;margin-left:8px" data-id="'+ev.id+'" onclick="finishFail(this.dataset.id)"><i class="ti ti-x"></i> 未接到旅客</button>');}}
     }
     /* 自動結案：發車超過 10 分鐘仍未結案 → 自動寫入歷史（超時）並刪除 */
     if(ms<-600000&&!autoCloseF.has(ev.id)){
@@ -1669,7 +1681,7 @@ function getFilteredEvents(){
 /* ── 將所有需要 HTML inline handler 呼叫的函式暴露到 window（因為是 module script）── */
 Object.assign(window,{
   doLogin,doLogout,clearLoginErr,toggleLoginEye,togglePwd,uploadLogo,
-  showPage,openModal,closeFormModal,openAccModal,openAccEdit,saveAcc,deleteAcc,
+  showPage,applyNavRole,openModal,closeFormModal,openAccModal,openAccEdit,saveAcc,deleteAcc,
   autoDir,updateTrains,openHistoryEdit,saveHistoryEdit,deleteHistory,
   filterLog,buildSound,playSoundPreview,saveAllSound,resetSoundCS,
   applyTT,onTTChange,openSuspendModal,onSReasonChange,executeSuspend,executeRestore,
