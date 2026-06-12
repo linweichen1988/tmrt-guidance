@@ -327,7 +327,15 @@ input[type=range]{flex:1;accent-color:#378ADD}
 <div class="page" id="page-history">
   <div class="topbar"><div class="topbar-title">歷史查詢</div><button class="btn"><i class="ti ti-download"></i>匯出</button></div>
   <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:10px">顯示過去 30 天　S級、A級可編輯刪除</div>
-  <div class="card"><table class="vtable"><thead><tr><th>時間</th><th>路線</th><th>類別</th><th>車組</th><th>狀態</th><th>建立者</th><th>備註</th><th>操作</th></tr></thead><tbody id="history-body"></tbody></table></div>
+  <div id="hist-batch-bar" style="display:none;align-items:center;gap:8px;padding:8px 12px;background:var(--color-background-info);border-radius:var(--border-radius-md);margin-bottom:8px;font-size:13px">
+    <span id="hist-batch-count" style="color:#0c447c;font-weight:500"></span>
+    <button class="btn btn-sm" onclick="batchDeleteHistory()" style="color:#E24B4A;border-color:#E24B4A"><i class="ti ti-trash"></i> 批次刪除</button>
+    <button class="btn btn-sm" onclick="clearHistSelection()">取消選取</button>
+  </div>
+  <div class="card"><table class="vtable"><thead><tr>
+    <th style="width:32px"><input type="checkbox" id="hist-chk-all" onclick="toggleAllHist(this)" style="cursor:pointer" title="全選"></th>
+    <th>時間</th><th>路線</th><th>類別</th><th>車組</th><th>狀態</th><th>建立者</th><th>備註</th><th>操作</th>
+  </tr></thead><tbody id="history-body"></tbody></table></div>
 </div>
 
 <!-- 時刻表 -->
@@ -1004,11 +1012,55 @@ function loadHistory(){
 }
 function renderHistory(){
   const tbody=document.getElementById('history-body');if(!tbody)return;
-  tbody.innerHTML=historyData.map(r=>`<tr><td>${r.time}</td><td>${r.from}→${r.to} ${r.dir==='down'?'下行':'上行'}</td><td><span class="badge badge-blue">${r.type}</span></td><td>${r.trainGroup}</td><td><span class="badge ${r.status==='完成'?'badge-green':'badge-red'}">${r.status}</span></td><td>${r.creator}</td><td style="font-size:11px;color:var(--color-text-secondary);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.note||'—'}</td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openHistoryEdit('${r.id}')"><i class="ti ti-edit"></i></button><button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A;margin-left:3px" onclick="deleteHistory('${r.id}')"><i class="ti ti-trash"></i></button></td></tr>`).join('');
+  tbody.innerHTML=historyData.map(r=>`<tr>
+    <td style="width:32px"><input type="checkbox" class="hist-chk" data-id="${r.id}" style="cursor:pointer" onclick="updateHistBatchBar()"></td>
+    <td>${r.time}</td>
+    <td>${r.from}→${r.to} ${r.dir==='down'?'下行':'上行'}</td>
+    <td><span class="badge badge-blue">${r.type}</span></td>
+    <td>${r.trainGroup}</td>
+    <td><span class="badge ${r.status==='完成'?'badge-green':'badge-red'}">${r.status}</span></td>
+    <td>${r.creator}</td>
+    <td style="font-size:11px;color:var(--color-text-secondary);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.note||'—'}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm" onclick="openHistoryEdit('${r.id}')"><i class="ti ti-edit"></i></button>
+      <button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A;margin-left:3px" onclick="deleteHistory('${r.id}')"><i class="ti ti-trash"></i></button>
+    </td>
+  </tr>`).join('');
+  updateHistBatchBar();
 }
 function openHistoryEdit(id){const r=historyData.find(x=>x.id===id);if(!r)return;document.getElementById('he-id').value=id;document.getElementById('he-route-display').textContent=r.from+' '+(SN[r.from]||'')+' → '+r.to+' '+(SN[r.to]||'')+' ('+(r.dir==='down'?'下行':'上行')+') · '+r.type;document.getElementById('he-status').value=r.status;document.getElementById('he-reason').value=r.reason||'';document.getElementById('he-note').value=r.note||'';document.getElementById('he-reason-wrap').style.display=r.status==='未完成'?'flex':'none';document.getElementById('modal-history-edit').classList.add('open');}
 function saveHistoryEdit(){const id=document.getElementById('he-id').value;const r=historyData.find(x=>x.id===id);if(!r)return;r.status=document.getElementById('he-status').value;r.reason=document.getElementById('he-reason').value;r.note=document.getElementById('he-note').value;updateHistoryInDb(id,{status:r.status,reason:r.reason,note:r.note});document.getElementById('modal-history-edit').classList.remove('open');renderHistory();showToast('歷史紀錄已更新');}
 function deleteHistory(id){if(confirm('確定刪除此筆歷史紀錄？')){deleteHistoryFromDb(id);historyData=historyData.filter(x=>x.id!==id);renderHistory();showToast('已刪除');}}
+
+/* ── 歷史查詢批次操作 ── */
+function updateHistBatchBar(){
+  const ids=[...document.querySelectorAll('.hist-chk:checked')].map(el=>el.dataset.id);
+  const bar=document.getElementById('hist-batch-bar');
+  const cnt=document.getElementById('hist-batch-count');
+  if(bar)bar.style.display=ids.length?'flex':'none';
+  if(cnt)cnt.textContent='已選取 '+ids.length+' 筆';
+  const allChk=document.getElementById('hist-chk-all');
+  const total=document.querySelectorAll('.hist-chk').length;
+  if(allChk){allChk.indeterminate=ids.length>0&&ids.length<total;if(ids.length===total&&total>0)allChk.checked=true;else if(ids.length===0)allChk.checked=false;}
+}
+function toggleAllHist(cb){
+  document.querySelectorAll('.hist-chk').forEach(el=>{el.checked=cb.checked;});
+  updateHistBatchBar();
+}
+function clearHistSelection(){
+  document.querySelectorAll('.hist-chk').forEach(el=>{el.checked=false;});
+  const allChk=document.getElementById('hist-chk-all');
+  if(allChk){allChk.checked=false;allChk.indeterminate=false;}
+  updateHistBatchBar();
+}
+async function batchDeleteHistory(){
+  const ids=[...document.querySelectorAll('.hist-chk:checked')].map(el=>el.dataset.id);
+  if(!ids.length)return;
+  if(!confirm('確定刪除選取的 '+ids.length+' 筆歷史紀錄？'))return;
+  for(const id of ids){await deleteHistoryFromDb(id);}
+  historyData=historyData.filter(r=>!ids.includes(r.id));
+  renderHistory();showToast('已刪除 '+ids.length+' 筆歷史紀錄');
+}
 
 /* ── Log ── */
 const OP_L={login:'登入',create:'新增事件',edit:'編輯事件',delete:'刪除事件',export:'匯出報表',upload:'上傳時刻表',suspend:'暫停/恢復'};
@@ -1341,9 +1393,9 @@ function renderEvents(){
   '<div class="countdown-box" style="text-align:center;flex-shrink:0">'+
     '<div class="countdown-num '+clsArr+'" id="cd-'+ev.id+'">'+fmtCd(msArr)+'</div>'+
     '<div class="countdown-label">迄站發車倒數</div>'+
-    '<div style="margin-top:6px;text-align:left;font-size:10px;line-height:1.8">'+
-      '<div style="color:var(--color-text-secondary)">起站 '+SN[ev.from]+'　<span style="font-family:monospace">'+fmt(ev.departTime)+'</span> 發車</div>'+
-      (ev.arrivalTimeStr?'<div style="color:#1D9E75;font-weight:500">迄站 '+SN[ev.to]+'　<span style="font-family:monospace">'+ev.arrivalTimeStr+'</span> 發車</div>':'<div style="color:var(--color-text-tertiary)">迄站時間計算中</div>')+
+    '<div style="margin-top:6px;font-size:10px;line-height:1.9;font-family:monospace">'+
+      '<div style="color:var(--color-text-secondary)">起站 <span style="display:inline-block;width:5em">'+SN[ev.from]+'</span> '+fmt(ev.departTime)+' 發車</div>'+
+      (ev.arrivalTimeStr?'<div style="color:#1D9E75;font-weight:600">迄站 <span style="display:inline-block;width:5em">'+SN[ev.to]+'</span> '+ev.arrivalTimeStr+' 發車</div>':'<div style="color:var(--color-text-tertiary)">迄站時間計算中</div>')+
     '</div>'+
   '</div>'+
 '</div>'
@@ -1410,21 +1462,18 @@ function getCurrentTimetable(dir){
   if(type==='rest') return dir==='down'?THRD:THRU;
   return dir==='down'?TD:TU;
 }
-/* ── 查詢迄站到站時間（時間差法）── */
+/* ── 查詢迄站發車時間（欄位索引+相對偏移法）── */
 function getArrivalTime(fromStation,departTimeStr,toStation,dir){
   const tbl=getCurrentTimetable(dir);
   const fromTimes=tbl[fromStation]||[];
   const toTimes=tbl[toStation]||[];
-  if(!fromTimes.includes(departTimeStr))return null;
-  const fMin=ttTimeToMin(departTimeStr);
-  const candidates=[];
-  for(const t of toTimes){
-    const diff=ttTimeToMin(t)-fMin;
-    if(diff>=1&&diff<=45)candidates.push([diff,t]);
-  }
-  if(!candidates.length)return null;
-  candidates.sort((a,b)=>a[0]-b[0]);
-  return candidates[0][1];
+  if(!fromTimes.includes(departTimeStr)||!toTimes.length)return null;
+  const idx=fromTimes.indexOf(departTimeStr);
+  /* 相對偏移 = 迄站班次數 - 起站班次數（始發車造成的欄位偏移）*/
+  const offset=toTimes.length-fromTimes.length;
+  const targetIdx=idx+offset;
+  if(targetIdx<0||targetIdx>=toTimes.length)return null;
+  return toTimes[targetIdx];
 }
 function ttTimeToMin(t){const[h,m]=t.split(':').map(Number);return(h<5?h+24:h)*60+m;}
 
@@ -1967,24 +2016,25 @@ function getFilteredEvents(){
 /* ── 自動暴露所有函式到 window（module script 需要）── */
 Object.assign(window,{
   aInfo, addEventToDb, addHistoryToDb, addLog, applyNavRole, applyTT, askDeleteTT, autoDir,
-  batchDeleteAcc, batchResetDevice, bindLoginEvents, bip, buildEventFilter, buildNote, buildSound, calKey,
-  calNextMonth, calPrevMonth, calcDir, cdCls, clearAccSelection, clearLoginErr, clearNF, closeAlert,
-  closeCalEdit, closeFormModal, closeMobileMenu, closeSoundReplace, confirmDeleteTT, confirmSoundReplace, delEvent, deleteAcc,
-  deleteAccFromDb, deleteEventFromDb, deleteHistory, deleteHistoryFromDb, deleteTTFromDb, doCalImport, doLogin, doLogout,
-  executeRestore, executeSuspend, filterLog, finishFail, finishOk, flushAlertQueue, fmt, fmtCd,
-  ga, getArrivalTime, getCalEntry, getCurrentTimetable, getDefaultStation, getDefaultToStation, getFilteredEvents, getNextN,
-  getSelectedAccIds, getTodayTTName, getTodayTTType, handleCalImportFile, handleEditTTFile, handleNewTTFile, handleSoundUpload, initTTTableEvents,
-  isCalDeleted, isMgmtUnit, loadAccounts, loadCalOvr, loadHistory, loadLogs, loadSoundSettings, loadTTVersions,
-  loginSuccess, makeStationSelect, needsDropdownFilter, nowStr, nowStr2, onSReasonChange, onTTChange, openAccEdit,
-  openAccModal, openCalEdit, openCalImport, openEditModal, openEditTT, openFilePreview, openHistoryEdit, openMobileMenu,
-  openModal, openNewTT, openSoundReplace, openSuspendModal, parseNote, playCS, playCurrentSoundCS, playSoundPreview,
-  queueAlert, refreshSoundCurrent, renderAccounts, renderCalMain, renderCalSpecialList, renderEvents, renderHistory, renderLog,
-  renderSoundReplaceList, renderSuspendBtn, renderSuspendOverlay, renderTTBanner, renderTTTable, resetDevice, resetSoundCS, saveAcc,
-  saveAccToDb, saveAllSound, saveCalEdit, saveCalOvrToDb, saveHistoryEdit, saveTTToDb, selCalSv, selCalType,
-  selSoundPreset, setEventFilter, setSFilter, showAlert, showPage, showToast, speakArrivalNotice, speakArrivalNoticeVol,
-  startEventsListener, startLock, startLoop, stopLoop, submitEditTT, submitEvent, submitFail, submitNewTT,
-  tick, todayStrTT, toggleAllAcc, toggleLoginEye, togglePwd, ttTimeToMin, updateAccBatchBar, updateAccInDb,
-  updateCalStep2, updateEventInDb, updateHistoryInDb, updateLockCd, updateSoundVol, updateTrains, uploadLogo
+  batchDeleteAcc, batchDeleteHistory, batchResetDevice, bindLoginEvents, bip, buildEventFilter, buildNote, buildSound,
+  calKey, calNextMonth, calPrevMonth, calcDir, cdCls, clearAccSelection, clearHistSelection, clearLoginErr,
+  clearNF, closeAlert, closeCalEdit, closeFormModal, closeMobileMenu, closeSoundReplace, confirmDeleteTT, confirmSoundReplace,
+  delEvent, deleteAcc, deleteAccFromDb, deleteEventFromDb, deleteHistory, deleteHistoryFromDb, deleteTTFromDb, doCalImport,
+  doLogin, doLogout, executeRestore, executeSuspend, filterLog, finishFail, finishOk, flushAlertQueue,
+  fmt, fmtCd, ga, getArrivalTime, getCalEntry, getCurrentTimetable, getDefaultStation, getDefaultToStation,
+  getFilteredEvents, getNextN, getSelectedAccIds, getTodayTTName, getTodayTTType, handleCalImportFile, handleEditTTFile, handleNewTTFile,
+  handleSoundUpload, initTTTableEvents, isCalDeleted, isMgmtUnit, loadAccounts, loadCalOvr, loadHistory, loadLogs,
+  loadSoundSettings, loadTTVersions, loginSuccess, makeStationSelect, needsDropdownFilter, nowStr, nowStr2, onSReasonChange,
+  onTTChange, openAccEdit, openAccModal, openCalEdit, openCalImport, openEditModal, openEditTT, openFilePreview,
+  openHistoryEdit, openMobileMenu, openModal, openNewTT, openSoundReplace, openSuspendModal, parseNote, playCS,
+  playCurrentSoundCS, playSoundPreview, queueAlert, refreshSoundCurrent, renderAccounts, renderCalMain, renderCalSpecialList, renderEvents,
+  renderHistory, renderLog, renderSoundReplaceList, renderSuspendBtn, renderSuspendOverlay, renderTTBanner, renderTTTable, resetDevice,
+  resetSoundCS, saveAcc, saveAccToDb, saveAllSound, saveCalEdit, saveCalOvrToDb, saveHistoryEdit, saveTTToDb,
+  selCalSv, selCalType, selSoundPreset, setEventFilter, setSFilter, showAlert, showPage, showToast,
+  speakArrivalNotice, speakArrivalNoticeVol, startEventsListener, startLock, startLoop, stopLoop, submitEditTT, submitEvent,
+  submitFail, submitNewTT, tick, todayStrTT, toggleAllAcc, toggleAllHist, toggleLoginEye, togglePwd,
+  ttTimeToMin, updateAccBatchBar, updateAccInDb, updateCalStep2, updateEventInDb, updateHistBatchBar, updateHistoryInDb, updateLockCd,
+  updateSoundVol, updateTrains, uploadLogo
 });
 
 
