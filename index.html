@@ -1098,7 +1098,7 @@ const PRESETS={warn:[{id:'w1',name:'雙嗶提示',tag:'輕柔',fn:(v)=>{const a=
 /* ══ 音效設定（新版） ══ */
 const SOUND_SECTIONS_CFG=[
   {k:'warn',   icon:'⚠️', label:'準備就緒提醒音（3分鐘警示）', desc:'倒數達3分鐘時觸發，循環直到確認'},
-  {k:'danger', icon:'🚨', label:'緊急確認提示音（1分鐘警示）', desc:'倒數達1分鐘時觸發，循環直到確認'},
+  {k:'danger', icon:'🚨', label:'緊急確認語音提示音（1分30秒警示）', desc:'倒數達90秒時觸發，循環直到確認（語音：引導旅客即將到站，請確認人員是否就定位）'},
   {k:'success',icon:'✅', label:'到站完成音',                  desc:'列車抵達時觸發，重複播放直到按下確認'},
   {k:'notify', icon:'📢', label:'收到引導訊息提醒音',           desc:'其他站新增引導事件、本站為迄站時觸發（語音播報3次）'},
 ];
@@ -1194,7 +1194,7 @@ function loadSoundSettings(){
     });
   },e=>console.error('音效設定監聽失敗',e));
 }
-function playCurrentSoundCS(k){playCS(k);}
+function playCurrentSoundCS(k){if(k==='danger'){speakDanger();}else{playCS(k);}}
 
 function openSoundReplace(k){
   soundReplaceKey=k;soundReplaceSel=SC[k].current.type==='preset'?SC[k].current.id:null;soundReplaceFile=null;
@@ -1256,7 +1256,7 @@ function confirmSoundReplace(){
 /* ── 事件系統 ── */
 function fmt(dt){return dt.getHours().toString().padStart(2,'0')+':'+dt.getMinutes().toString().padStart(2,'0');}
 function fmtCd(ms){if(ms<=0)return'00:00';const s=Math.floor(ms/1000),m=Math.floor(s/60);return m.toString().padStart(2,'0')+':'+(s%60).toString().padStart(2,'0');}
-function cdCls(ms){if(ms<=60000)return'danger';if(ms<=180000)return'warn';return'normal';}
+function cdCls(ms){if(ms<=90000)return'danger';if(ms<=180000)return'warn';return'normal';}
 const TC={'視障旅客':'tag-blue','年長旅客':'tag-coral','輪椅旅客（攜帶輪椅）':'tag-green','輪椅旅客（協助駐留）':'tag-green','其他':'tag-gray'};
 let events=[];
 let nextId=1;
@@ -1337,8 +1337,32 @@ function flushAlertQueue(){
   startLoop(next.soundKey);
   showAlert(next.type,next.icon,next.title,next.info,next.extra,next.btns);
 }
-function startLoop(k){stopLoop();playCS(k);bepInt=setInterval(()=>playCS(k),k==='danger'?450:700);}
-function stopLoop(){if(bepInt){clearInterval(bepInt);bepInt=null;}}
+/* 語音合成播放（danger 情境使用）*/
+let ttsInt=null;
+function speakDanger(){
+  if(!window.speechSynthesis)return;
+  window.speechSynthesis.cancel();
+  const utter=new SpeechSynthesisUtterance('引導旅客即將到站，請確認人員是否就定位');
+  utter.lang='zh-TW';utter.rate=1;utter.pitch=1;
+  /* 嘗試選用 Google 台灣中文女聲 */
+  const voices=window.speechSynthesis.getVoices();
+  const prefer=voices.find(v=>/zh.*TW|zh.*tw|Google.*TW|cmn-TW/i.test(v.lang+v.name));
+  if(prefer)utter.voice=prefer;
+  const vol=SC&&SC.danger?SC.danger.vol/100:0.8;
+  utter.volume=vol;
+  window.speechSynthesis.speak(utter);
+}
+function startLoop(k){
+  stopLoop();
+  if(k==='danger'){
+    speakDanger();
+    ttsInt=setInterval(speakDanger,4500);/* 每4.5秒循環語音 */
+  } else {
+    playCS(k);
+    bepInt=setInterval(()=>playCS(k),700);
+  }
+}
+function stopLoop(){if(bepInt){clearInterval(bepInt);bepInt=null;}if(ttsInt){clearInterval(ttsInt);ttsInt=null;}if(window.speechSynthesis)window.speechSynthesis.cancel();}
 function playCS(k){
   const cur=SC[k].current;
   if(k==='notify'){speakArrivalNoticeVol(SC.notify.vol/100);return;}
@@ -1590,9 +1614,9 @@ function tick(){
       wF.add(ev.id);
       if(isMyArrival){queueAlert('warn','⚠️','準備就緒提醒　距發車約 3 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，已派員至指定地點</button>','warn');}
     }
-    if(ms<=60000&&ms>0&&!dF.has(ev.id)){
+    if(ms<=90000&&ms>0&&!dF.has(ev.id)){
       dF.add(ev.id);
-      if(isMyArrival){queueAlert('danger','🚨','緊急確認　距發車不到 1 分鐘',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，人員已在月台等候</button>','danger');}
+      if(isMyArrival){queueAlert('danger','🚨','緊急確認　距發車不到 1 分 30 秒',aInfo(ev),'','<button class="btn btn-primary" onclick="closeAlert()"><i class="ti ti-check"></i> 確認，人員已在月台等候</button>','danger');}
     }
     if(ms<=0&&!doF.has(ev.id)){
       doF.add(ev.id);
@@ -2031,10 +2055,10 @@ Object.assign(window,{
   renderHistory, renderLog, renderSoundReplaceList, renderSuspendBtn, renderSuspendOverlay, renderTTBanner, renderTTTable, resetDevice,
   resetSoundCS, saveAcc, saveAccToDb, saveAllSound, saveCalEdit, saveCalOvrToDb, saveHistoryEdit, saveTTToDb,
   selCalSv, selCalType, selSoundPreset, setEventFilter, setSFilter, showAlert, showPage, showToast,
-  speakArrivalNotice, speakArrivalNoticeVol, startEventsListener, startLock, startLoop, stopLoop, submitEditTT, submitEvent,
-  submitFail, submitNewTT, tick, todayStrTT, toggleAllAcc, toggleAllHist, toggleLoginEye, togglePwd,
-  ttTimeToMin, updateAccBatchBar, updateAccInDb, updateCalStep2, updateEventInDb, updateHistBatchBar, updateHistoryInDb, updateLockCd,
-  updateSoundVol, updateTrains, uploadLogo
+  speakArrivalNotice, speakArrivalNoticeVol, speakDanger, startEventsListener, startLock, startLoop, stopLoop, submitEditTT,
+  submitEvent, submitFail, submitNewTT, tick, todayStrTT, toggleAllAcc, toggleAllHist, toggleLoginEye,
+  togglePwd, ttTimeToMin, updateAccBatchBar, updateAccInDb, updateCalStep2, updateEventInDb, updateHistBatchBar, updateHistoryInDb,
+  updateLockCd, updateSoundVol, updateTrains, uploadLogo
 });
 
 
