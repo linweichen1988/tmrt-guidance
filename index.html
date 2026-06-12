@@ -653,6 +653,23 @@ async function doLogin(){
     return;
   }
   loginAttempts=0;
+  /* ── 裝置 Token 驗證（S 級豁免）── */
+  if(user.role!=='S'){
+    const localToken=localStorage.getItem('tmrt_dt_'+user.username);
+    if(user.deviceToken&&user.deviceToken!==''){
+      /* 已綁定裝置：比對 token */
+      if(localToken!==user.deviceToken){
+        document.getElementById('l-err').innerHTML='<i class="ti ti-shield-lock"></i> 此帳號已綁定其他裝置，請聯繫管理員重置';
+        document.getElementById('l-acc').classList.add('inp-err');
+        return;
+      }
+    } else {
+      /* 首次登入：產生並綁定 token */
+      const newToken=crypto.randomUUID();
+      localStorage.setItem('tmrt_dt_'+user.username,newToken);
+      user.deviceToken=newToken;
+    }
+  }
   CU=user;
   const prevLogin=user.lastLogin||'—';
   const prevIp=user.lastLoginIp||'—';
@@ -726,6 +743,7 @@ function renderAccounts(){
       <td><span class="badge ${u.status==='啟用'?'badge-green':'badge-gray'}">${u.status}</span></td>
       <td style="white-space:nowrap">
         <button class="btn btn-sm" onclick="openAccEdit('${u.id}')"><i class="ti ti-edit"></i></button>
+        ${u.role!=='S'?`<button class="btn btn-sm" style="color:#E8861A;border-color:#E8861A;margin-left:3px" onclick="resetDevice('${u.id}')" title="重置裝置綁定"><i class="ti ti-device-mobile-off"></i></button>`:''}
         <button class="btn btn-sm" style="color:#E24B4A;border-color:#E24B4A;margin-left:3px" onclick="deleteAcc('${u.id}')"><i class="ti ti-trash"></i></button>
       </td>
     </tr>`).join('');
@@ -777,6 +795,14 @@ function saveAcc(){
 function deleteAcc(id){
   if(id==='a1'){showToast('無法刪除主要管理員帳號');return;}
   if(confirm('確定刪除此帳號？')){deleteAccFromDb(id);ACCOUNTS=ACCOUNTS.filter(u=>u.id!==id);renderAccounts();showToast('帳號已刪除');}
+}
+async function resetDevice(id){
+  const u=ACCOUNTS.find(x=>x.id===id);if(!u)return;
+  if(!confirm('確定重置「'+u.name+'」的裝置綁定？\n該帳號下次登入時將自動綁定新裝置。'))return;
+  u.deviceToken='';
+  await updateAccInDb(u);
+  showToast('裝置綁定已重置，'+u.name+'下次登入將重新綁定');
+  addLog('edit','重置裝置綁定：'+u.username+' ('+u.name+')');
 }
 
 /* ── 站碼順序 ── */
@@ -1651,7 +1677,7 @@ Object.assign(window,{
   renderTTTable,initTTTableEvents,renderCalMain,calPrevMonth,calNextMonth,
   openFilePreview,openSoundReplace,closeSoundReplace,confirmSoundReplace,loadSoundSettings,updateSoundVol,
   selSoundPreset,handleSoundUpload,handleNewTTFile,playCurrentSoundCS,
-  finishOk,finishFail,submitFail,delEvent,openEditModal,submitEvent,
+  finishOk,finishFail,submitFail,delEvent,openEditModal,submitEvent,resetDevice,
   closeAlert,confirmDeleteTT,showToast
 });
 
